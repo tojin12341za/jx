@@ -83,6 +83,7 @@ func ConfigureTestOptionsWithResources(o *opts.CommonOptions, k8sObjects []runti
 		devEnv := kube.NewPermanentEnvironment("dev")
 		devEnv.Spec.Namespace = currentNamespace
 		devEnv.Spec.Kind = v1.EnvironmentKindTypeDevelopment
+		devEnv.Spec.PromotionStrategy = v1.PromotionStrategyTypeNever
 
 		jxObjects = append(jxObjects, devEnv)
 	}
@@ -349,7 +350,27 @@ func AssertHasPullRequestForEnv(t *testing.T, activities typev1.PipelineActivity
 	dumpFailedActivity(activity)
 }
 
-func WaitForPullRequestForEnv(t *testing.T, activities typev1.PipelineActivityInterface, name string, envName string) {
+func WaitForPullRequestInRepoEnv(t *testing.T, envRepo *gits.FakeRepository, merged bool) {
+	waitTime, _ := time.ParseDuration("20s")
+	end := time.Now().Add(waitTime)
+	for {
+		if len(envRepo.PullRequests) == 1 {
+			isPRMerged := envRepo.PullRequests[1].PullRequest.Merged
+			if !merged && isPRMerged == nil || !merged && !*isPRMerged || merged && *isPRMerged {
+				return
+			}
+		}
+		if time.Now().After(end) {
+			log.Logger().Infof("No Promote PR found for promotion on repo %s", envRepo.GitRepo)
+			return
+		}
+		log.Logger().Infof("Waiting 1s for PullRequest in repo %s", envRepo.GitRepo.Name)
+		v, _ := time.ParseDuration("2s")
+		time.Sleep(v)
+	}
+}
+
+func WaitForPullRequestForEnvInPipelineActivity(t *testing.T, activities typev1.PipelineActivityInterface, name string, envName string) {
 	activity, err := activities.Get(name, metav1.GetOptions{})
 	if err != nil {
 		assert.NoError(t, err, "Could not find PipelineActivity %s", name)
@@ -508,7 +529,7 @@ func AssertAllPromoteStepsSuccessful(t *testing.T, activities typev1.PipelineAct
 	}
 }
 
-func AssertHasNoPullRequestForEnv(t *testing.T, activities typev1.PipelineActivityInterface, name string, envName string) {
+func AssertHasNoPullRequestForEnvInPipelineActivity(t *testing.T, activities typev1.PipelineActivityInterface, name string, envName string) {
 	activity, err := activities.Get(name, metav1.GetOptions{})
 	if err != nil {
 		assert.NoError(t, err, "Could not find PipelineActivity %s", name)

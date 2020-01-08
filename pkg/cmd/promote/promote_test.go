@@ -2,6 +2,7 @@ package promote_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -35,7 +36,60 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-func TestPromoteToProductionRun(t *testing.T) {
+func TestManualPromoteToProductionRun(t *testing.T) {
+
+	// prepare the initial setup for testing
+	testEnv, err := prepareInitialPromotionEnv(t, true)
+	assert.NoError(t, err)
+
+	// jx promote --batch-mode --app my-app --env production --version 1.2.0 --no-helm-update --no-poll
+
+	version := "1.2.0"
+
+	promoteOptions := &promote.PromoteOptions{
+		Environment:         "production",                   // --env production
+		Application:         "my-app",                       // --app my-app
+		Pipeline:            testEnv.Activity.Spec.Pipeline, // needed for the test to pass on CI, otherwise it takes the actual CI build value
+		Build:               testEnv.Activity.Spec.Build,    // needed for the test to pass on CI, otherwise it takes the actual CI build value
+		Version:             version,                        // --version 1.2.0
+		ReleaseName:         "",
+		LocalHelmRepoName:   "",
+		HelmRepositoryURL:   "",
+		NoHelmUpdate:        true, // --no-helm-update
+		AllAutomatic:        false,
+		NoMergePullRequest:  false,
+		NoPoll:              true, // --no-poll
+		NoWaitAfterMerge:    false,
+		IgnoreLocalFiles:    true,
+		Timeout:             "1h",
+		PullRequestPollTime: "20s",
+		Filter:              "",
+		Alias:               "",
+		Namespace:           "jx",
+	}
+	commonOpts := *testEnv.CommonOptions
+	promoteOptions.CommonOptions = &commonOpts // Factory and other mocks initialized by cmd.ConfigureTestOptionsWithResources
+
+	// Check there is no PR for production env yet
+	assert.Equal(t, 0, len(testEnv.ProdRepo.PullRequests))
+
+	// Run the promotion
+	err = promoteOptions.Run()
+	assert.NoError(t, err)
+
+	// PR has been created for environment production
+	assert.Equal(t, 1, len(testEnv.ProdRepo.PullRequests))
+	assert.Equal(t, testEnv.ProdRepo.PullRequests[1].PullRequest.Body, fmt.Sprintf("chore: Promote %s to version %s", "my-app", version))
+	assert.Equal(t, testEnv.ProdRepo.PullRequests[1].PullRequest.Body, fmt.Sprintf("chore: Promote %s to version %s", "my-app", version))
+
+	jxClient, ns, err := promoteOptions.JXClientAndDevNamespace()
+	activities := jxClient.JenkinsV1().PipelineActivities(ns)
+
+	// lets make sure we don't update the pipeline activity with PR info
+	testhelpers.AssertHasNoPullRequestForEnvInPipelineActivity(t, activities, testEnv.Activity.Name, "production")
+}
+
+func TestBatchPromoteToProductionRun(t *testing.T) {
 
 	// prepare the initial setup for testing
 	testEnv, err := prepareInitialPromotionEnv(t, true)
@@ -71,26 +125,22 @@ func TestPromoteToProductionRun(t *testing.T) {
 	promoteOptions.BatchMode = true            // --batch-mode
 
 	// Check there is no PR for production env yet
-	jxClient, ns, err := promoteOptions.JXClientAndDevNamespace()
-	activities := jxClient.JenkinsV1().PipelineActivities(ns)
-	testhelpers.AssertHasNoPullRequestForEnv(t, activities, testEnv.Activity.Name, "production")
+	assert.Equal(t, 0, len(testEnv.ProdRepo.PullRequests))
 
 	// Run the promotion
 	err = promoteOptions.Run()
 	assert.NoError(t, err)
 
-	// The PR has been created
-	testhelpers.AssertHasPullRequestForEnv(t, activities, testEnv.Activity.Name, "production")
-	testhelpers.AssertHasPipelineStatus(t, activities, testEnv.Activity.Name, v1.ActivityStatusTypeRunning)
-	// merge
-	testhelpers.AssertSetPullRequestMerged(t, testEnv.FakeGitProvider, testEnv.ProdRepo.Owner, testEnv.ProdRepo.Name(), 1)
-	testhelpers.AssertSetPullRequestComplete(t, testEnv.FakeGitProvider, testEnv.ProdRepo, 1)
+	// PR has been created for environment production
+	assert.Equal(t, 1, len(testEnv.ProdRepo.PullRequests))
+	assert.Equal(t, testEnv.ProdRepo.PullRequests[1].PullRequest.Body, fmt.Sprintf("chore: Promote %s to version %s", "my-app", version))
+	assert.Equal(t, testEnv.ProdRepo.PullRequests[1].PullRequest.Body, fmt.Sprintf("chore: Promote %s to version %s", "my-app", version))
 
-	// retry the workflow to actually check the PR was merged and the app is in production
-	pollGitStatusAndReactToPipelineChanges(t, testEnv.WorkflowOptions, jxClient, ns)
-	testhelpers.AssertHasPromoteStatus(t, activities, testEnv.Activity.Name, "production", v1.ActivityStatusTypeSucceeded)
-	assert.Equal(t, version, promoteOptions.ReleaseInfo.Version)
+	jxClient, ns, err := promoteOptions.JXClientAndDevNamespace()
+	activities := jxClient.JenkinsV1().PipelineActivities(ns)
 
+	// lets make sure we don't update the pipeline activity with PR info
+	testhelpers.AssertHasNoPullRequestForEnvInPipelineActivity(t, activities, testEnv.Activity.Name, "production")
 }
 
 func TestPromoteToProductionNoMergeRun(t *testing.T) {
@@ -130,7 +180,8 @@ func TestPromoteToProductionNoMergeRun(t *testing.T) {
 	jxClient, ns, err := promoteOptions.JXClientAndDevNamespace()
 	activities := jxClient.JenkinsV1().PipelineActivities(ns)
 
-	testhelpers.AssertHasNoPullRequestForEnv(t, activities, testEnv.Activity.Name, "production")
+	// Ensure there is no PR opened in the prod repo before the promotion run
+	assert.Equal(t, len(testEnv.ProdRepo.PullRequests), 0)
 
 	ch := make(chan int)
 
@@ -142,8 +193,7 @@ func TestPromoteToProductionNoMergeRun(t *testing.T) {
 	}()
 
 	// wait for the PR the be created by the promote command
-	testhelpers.WaitForPullRequestForEnv(t, activities, testEnv.Activity.Name, "production")
-	testhelpers.AssertHasPipelineStatus(t, activities, testEnv.Activity.Name, v1.ActivityStatusTypeRunning)
+	testhelpers.WaitForPullRequestInRepoEnv(t, testEnv.ProdRepo, false)
 
 	// merge the PR created by promote command...
 	testhelpers.AssertSetPullRequestMerged(t, testEnv.FakeGitProvider, testEnv.ProdRepo.Owner, testEnv.ProdRepo.Name(), 1)
@@ -154,7 +204,9 @@ func TestPromoteToProductionNoMergeRun(t *testing.T) {
 
 	// retry the workflow to actually check the PR was merged and the app is in production
 	pollGitStatusAndReactToPipelineChanges(t, testEnv.WorkflowOptions, jxClient, ns)
-	testhelpers.AssertHasPromoteStatus(t, activities, testEnv.Activity.Name, "production", v1.ActivityStatusTypeSucceeded)
+
+	// lets make sure we don't update the pipeline activity with PR info
+	testhelpers.AssertHasNoPullRequestForEnvInPipelineActivity(t, activities, testEnv.Activity.Name, "production")
 
 	//TODO: promoteOptions.ReleaseInfo.Version is empty here. Is this a bug?
 	//assert.Equal(t, "1.0.1", promoteOptions.ReleaseInfo.Version) // default next version
@@ -195,12 +247,11 @@ func TestPromoteToProductionPRPollingRun(t *testing.T) {
 
 	commonOpts := *testEnv.CommonOptions
 	promoteOptions.CommonOptions = &commonOpts // Factory and other mocks initialized by cmd.ConfigureTestOptionsWithResources
-	promoteOptions.BatchMode = true            // --batch-mode
 
 	jxClient, ns, err := promoteOptions.JXClientAndDevNamespace()
 	activities := jxClient.JenkinsV1().PipelineActivities(ns)
 
-	testhelpers.AssertHasNoPullRequestForEnv(t, activities, testEnv.Activity.Name, "production")
+	assert.Equal(t, 0, len(testEnv.ProdRepo.PullRequests))
 
 	ch := make(chan int)
 
@@ -212,8 +263,7 @@ func TestPromoteToProductionPRPollingRun(t *testing.T) {
 	}()
 
 	// wait for the PR the be created by the promote command
-	testhelpers.WaitForPullRequestForEnv(t, activities, testEnv.Activity.Name, "production")
-	testhelpers.AssertHasPipelineStatus(t, activities, testEnv.Activity.Name, v1.ActivityStatusTypeRunning)
+	testhelpers.WaitForPullRequestInRepoEnv(t, testEnv.ProdRepo, false)
 
 	// mark latest commit as success tu unblock the promotion (PR will be automatically merged)
 	testhelpers.SetSuccessCommitStatusInPR(t, testEnv.ProdRepo, 1)
@@ -224,6 +274,9 @@ func TestPromoteToProductionPRPollingRun(t *testing.T) {
 	// retry the workflow to actually check the PR was merged and the app is in production
 	pollGitStatusAndReactToPipelineChanges(t, testEnv.WorkflowOptions, jxClient, ns)
 	testhelpers.AssertHasPromoteStatus(t, activities, testEnv.Activity.Name, "production", v1.ActivityStatusTypeSucceeded)
+
+	// lets make sure we don't update the pipeline activity with PR info
+	testhelpers.AssertHasNoPullRequestForEnvInPipelineActivity(t, activities, testEnv.Activity.Name, "production")
 
 	//TODO: promoteOptions.ReleaseInfo.Version is empty here. Is this a bug?
 	//assert.Equal(t, "1.0.1", promoteOptions.ReleaseInfo.Version) // default next version
@@ -543,7 +596,7 @@ func prepareInitialPromotionEnv(t *testing.T, productionManualPromotion bool) (*
 	stagingRepo, _ := gits.NewFakeRepository(testOrgName, stagingRepoName, addFiles, gitter)
 	prodRepo, _ := gits.NewFakeRepository(testOrgName, prodRepoName, addFiles, gitter)
 
-	// Needed for another helpe
+	// Needed for another helper
 
 	fakeGitProvider := gits.NewFakeProvider(fakeRepo, stagingRepo, prodRepo)
 	fakeGitProvider.User.Username = testOrgName
@@ -570,11 +623,12 @@ func prepareInitialPromotionEnv(t *testing.T, productionManualPromotion bool) (*
 		resources_mock.NewMockInstaller(),
 	)
 
+	version := "1.0.1"
 	//Mock out the helm repository fetch operation
 	helm_test.StubFetchChart(testRepoName, "", kube.DefaultChartMuseumURL, &chart.Chart{
 		Metadata: &chart.Metadata{
 			Name:    testRepoName,
-			Version: "1.0.1",
+			Version: version,
 		},
 	}, mockHelmer)
 
@@ -583,8 +637,8 @@ func prepareInitialPromotionEnv(t *testing.T, productionManualPromotion bool) (*
 	pegomock.When(mockHelmer.SearchCharts(testRepoName, true)).ThenReturn([]helm.ChartSummary{
 		{
 			Name:         testRepoName,
-			ChartVersion: "1.0.1",
-			AppVersion:   "1.0.1",
+			ChartVersion: version,
+			AppVersion:   version,
 		},
 	}, nil)
 
@@ -610,7 +664,7 @@ func prepareInitialPromotionEnv(t *testing.T, productionManualPromotion bool) (*
 	pollGitStatusAndReactToPipelineChanges(t, o, jxClient, ns)
 
 	// lets make sure we don't create a PR for production as its manual
-	testhelpers.AssertHasNoPullRequestForEnv(t, activities, a.Name, "production")
+	testhelpers.AssertHasNoPullRequestForEnvInPipelineActivity(t, activities, a.Name, "production")
 
 	// merge PR in staging repo
 	if !testhelpers.AssertSetPullRequestMerged(t, fakeGitProvider, stagingRepo.Owner, stagingRepo.Name(), 1) {
@@ -627,7 +681,7 @@ func prepareInitialPromotionEnv(t *testing.T, productionManualPromotion bool) (*
 	testhelpers.AssertWorkflowStatus(t, activities, a.Name, v1.ActivityStatusTypeSucceeded)
 
 	// There is no PR for production, as it is manual
-	testhelpers.AssertHasNoPullRequestForEnv(t, activities, a.Name, "production")
+	testhelpers.AssertHasNoPullRequestForEnvInPipelineActivity(t, activities, a.Name, "production")
 
 	// Promote to staging succeeded...
 	testhelpers.AssertHasPromoteStatus(t, activities, a.Name, "staging", v1.ActivityStatusTypeSucceeded)

@@ -336,7 +336,7 @@ func (o *PromoteOptions) Run() error {
 			return fmt.Errorf("Could not find an Environment called %s", o.Environment)
 		}
 	}
-	releaseInfo, err := o.Promote(targetNS, env, true)
+	releaseInfo, err := o.Promote(targetNS, env)
 	if err != nil {
 		return err
 	}
@@ -383,7 +383,7 @@ func (o *PromoteOptions) PromoteAllAutomatic() error {
 			if ns == "" {
 				return fmt.Errorf("No namespace for environment %s", env.Name)
 			}
-			releaseInfo, err := o.Promote(ns, &env, false)
+			releaseInfo, err := o.Promote(ns, &env)
 			if err != nil {
 				return err
 			}
@@ -399,7 +399,8 @@ func (o *PromoteOptions) PromoteAllAutomatic() error {
 	return nil
 }
 
-func (o *PromoteOptions) Promote(targetNS string, env *v1.Environment, warnIfAuto bool) (*ReleaseInfo, error) {
+func (o *PromoteOptions) Promote(targetNS string, env *v1.Environment) (*ReleaseInfo, error) {
+	automaticPromotion := o.BatchMode
 	surveyOpts := survey.WithStdio(o.In, o.Out, o.Err)
 	app := o.Application
 	if app == "" {
@@ -428,7 +429,7 @@ func (o *PromoteOptions) Promote(targetNS string, env *v1.Environment, warnIfAut
 		Version:     version,
 	}
 
-	if warnIfAuto && env != nil && env.Spec.PromotionStrategy == v1.PromotionStrategyTypeAutomatic && !o.BatchMode {
+	if !automaticPromotion && env != nil && env.Spec.PromotionStrategy == v1.PromotionStrategyTypeAutomatic && !o.BatchMode {
 		log.Logger().Infof("%s", util.ColorWarning(fmt.Sprintf("WARNING: The Environment %s is setup to promote automatically as part of the CI/CD Pipelines.\n", env.Name)))
 
 		confirm := &survey.Confirm{
@@ -453,8 +454,9 @@ func (o *PromoteOptions) Promote(targetNS string, env *v1.Environment, warnIfAut
 	if err != nil {
 		return releaseInfo, err
 	}
-	promoteKey := o.CreatePromoteKey(env)
-	if env != nil {
+
+	if automaticPromotion && env != nil && env.Spec.PromotionStrategy == v1.PromotionStrategyTypeAutomatic {
+		promoteKey := o.CreatePromoteKey(env)
 		source := &env.Spec.Source
 		if source.URL != "" && env.Spec.Kind.IsPermanent() {
 			err := o.PromoteViaPullRequest(env, releaseInfo)
@@ -479,54 +481,61 @@ func (o *PromoteOptions) Promote(targetNS string, env *v1.Environment, warnIfAut
 			}
 			return releaseInfo, err
 		}
-	}
 
-	err = o.verifyHelmConfigured()
-	if err != nil {
-		return releaseInfo, err
-	}
+		err = o.verifyHelmConfigured()
+		if err != nil {
+			return releaseInfo, err
+		}
 
-	// lets do a helm update to ensure we can find the latest version
-	if !o.NoHelmUpdate {
-		log.Logger().Info("Updating the helm repositories to ensure we can find the latest versions...")
-		err = o.Helm().UpdateRepo()
+		// lets do a helm update to ensure we can find the latest version
+		if !o.NoHelmUpdate {
+			log.Logger().Info("Updating the helm repositories to ensure we can find the latest versions...")
+			err = o.Helm().UpdateRepo()
+			if err != nil {
+				return releaseInfo, err
+			}
+		}
+
+		startPromote := func(a *v1.PipelineActivity, s *v1.PipelineActivityStep, ps *v1.PromoteActivityStep, p *v1.PromoteUpdateStep) error {
+			kube.StartPromotionUpdate(a, s, ps, p)
+			if version != "" && a.Spec.Version == "" {
+				a.Spec.Version = version
+			}
+			return nil
+		}
+		promoteKey.OnPromoteUpdate(kubeClient, jxClient, o.Namespace, startPromote)
+
+		setValues, setStrings := o.GetEnvChartValues(o.Namespace, env)
+
+		helmOptions := helm.InstallChartOptions{
+			Chart:       fullAppName,
+			ReleaseName: releaseName,
+			Ns:          targetNS,
+			Version:     version,
+			SetValues:   setValues,
+			SetStrings:  setStrings,
+			NoForce:     true,
+			Wait:        true,
+		}
+
+		err = o.InstallChartWithOptions(helmOptions)
+		if err == nil {
+			err = o.CommentOnIssues(targetNS, env, promoteKey)
+			if err != nil {
+				log.Logger().Warnf("Failed to comment on issues for release %s: %s", releaseName, err)
+			}
+			err = promoteKey.OnPromoteUpdate(kubeClient, jxClient, o.Namespace, kube.CompletePromotionUpdate)
+		} else {
+			err = promoteKey.OnPromoteUpdate(kubeClient, jxClient, o.Namespace, kube.FailedPromotionUpdate)
+		}
+
+	} else {
+		err := o.PromoteViaPullRequest(env, releaseInfo)
 		if err != nil {
 			return releaseInfo, err
 		}
 	}
 
-	startPromote := func(a *v1.PipelineActivity, s *v1.PipelineActivityStep, ps *v1.PromoteActivityStep, p *v1.PromoteUpdateStep) error {
-		kube.StartPromotionUpdate(a, s, ps, p)
-		if version != "" && a.Spec.Version == "" {
-			a.Spec.Version = version
-		}
-		return nil
-	}
-	promoteKey.OnPromoteUpdate(kubeClient, jxClient, o.Namespace, startPromote)
-
-	setValues, setStrings := o.GetEnvChartValues(o.Namespace, env)
-
-	helmOptions := helm.InstallChartOptions{
-		Chart:       fullAppName,
-		ReleaseName: releaseName,
-		Ns:          targetNS,
-		Version:     version,
-		SetValues:   setValues,
-		SetStrings:  setStrings,
-		NoForce:     true,
-		Wait:        true,
-	}
-
-	err = o.InstallChartWithOptions(helmOptions)
-	if err == nil {
-		err = o.CommentOnIssues(targetNS, env, promoteKey)
-		if err != nil {
-			log.Logger().Warnf("Failed to comment on issues for release %s: %s", releaseName, err)
-		}
-		err = promoteKey.OnPromoteUpdate(kubeClient, jxClient, o.Namespace, kube.CompletePromotionUpdate)
-	} else {
-		err = promoteKey.OnPromoteUpdate(kubeClient, jxClient, o.Namespace, kube.FailedPromotionUpdate)
-	}
 	return releaseInfo, err
 }
 
