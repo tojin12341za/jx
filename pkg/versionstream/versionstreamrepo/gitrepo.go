@@ -62,6 +62,19 @@ func cloneJXVersionsRepo(versionRepository string, versionRef string, settings *
 
 	// If the repo already exists let's try to fetch the latest version
 	if exists, err := util.DirExists(wrkDir); err == nil && exists {
+		isBranch, err := gits.RefIsBranch(wrkDir, versionRef, gitter)
+		if err != nil {
+			return "", "", err
+		}
+
+		tag, _, err := gitter.Describe(wrkDir, true, "HEAD", "0", true)
+		if err != nil {
+			return "", "", err
+		}
+		if isBranch && tag == versionRef {
+			return wrkDir, versionRef, nil
+		}
+
 		pullLatest := false
 		if batchMode {
 			pullLatest = true
@@ -94,11 +107,6 @@ func cloneJXVersionsRepo(versionRepository string, versionRef string, settings *
 					return "", "", errors.WithStack(err)
 				}
 				return dir, versionRef, nil
-			}
-
-			isBranch, err := gits.RefIsBranch(wrkDir, versionRef, gitter)
-			if err != nil {
-				return "", "", err
 			}
 
 			if versionRef == config.DefaultVersionsRef || isBranch {

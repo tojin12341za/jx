@@ -46,6 +46,16 @@ func NewGitCLI() *GitCLI {
 	return cli
 }
 
+// Config runs a 'git config' command in the specified directory
+func (g *GitCLI) Config(dir string, args ...string) error {
+	if args == nil {
+		args = []string{"config"}
+	} else {
+		args = append([]string{"config"}, args...)
+	}
+	return g.gitCmd(dir, args...)
+}
+
 // FindGitConfigDir tries to find the `.git` directory either in the current directory or in parent directories
 func (g *GitCLI) FindGitConfigDir(dir string) (string, string, error) {
 	d := dir

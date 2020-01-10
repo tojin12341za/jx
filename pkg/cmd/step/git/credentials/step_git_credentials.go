@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"net/url"
 	"os"
 	"path/filepath"
 
 	"github.com/jenkins-x/jx/pkg/auth"
 	"github.com/jenkins-x/jx/pkg/cmd/opts/step"
+	"github.com/jenkins-x/jx/pkg/gits/credentialhelper"
 	"github.com/pkg/errors"
 
 	"github.com/jenkins-x/jx/pkg/cmd/helper"
@@ -37,6 +37,7 @@ type StepGitCredentialsOptions struct {
 	GitHubAppOwner    string
 	GitKind           string
 	CredentialsSecret string
+	CredentialHelper  bool
 }
 
 type credentials struct {
@@ -57,6 +58,9 @@ var (
 
 		# generate the Git credentials to a output file
 		jx step git credentials -o /tmp/mycreds
+
+		# respond to a gitcredentials request
+		jx step git credentials --credential-helper
 `)
 )
 
@@ -82,6 +86,7 @@ func NewCmdStepGitCredentials(commonOpts *opts.CommonOptions) *cobra.Command {
 	cmd.Flags().StringVarP(&options.GitHubAppOwner, optionGitHubAppOwner, "g", "", "The owner (organisation or user name) if using GitHub App based tokens")
 	cmd.Flags().StringVarP(&options.CredentialsSecret, "credentials-secret", "s", "", "The secret name to read the credentials from")
 	cmd.Flags().StringVarP(&options.GitKind, "git-kind", "", "", "The git kind. e.g. github, bitbucketserver etc")
+	cmd.Flags().BoolVar(&options.CredentialHelper, "credential-helper", false, "respond to a gitcredentials request")
 	return cmd
 }
 
@@ -108,13 +113,12 @@ func (o *StepGitCredentialsOptions) Run() error {
 			return errors.Wrapf(err, "failed to find secret '%s' in namespace '%s'", o.CredentialsSecret, ns)
 		}
 
-		creds := credentials{
-			user:       string(secret.Data["user"]),
-			password:   string(secret.Data["token"]),
-			serviceURL: string(secret.Data["url"]),
+		creds, err := credentialhelper.CreateGitCredentialFromURL(string(secret.Data["url"]), string(secret.Data["token"]), string(secret.Data["user"]))
+		if err != nil {
+			return errors.Wrap(err, "failed to create git credentials")
 		}
 
-		return o.createGitCredentialsFile(outFile, []credentials{creds})
+		return o.createGitCredentialsFile(outFile, []credentialhelper.GitCredential{creds})
 	}
 
 	gha, err := o.IsGitHubAppMode()
@@ -144,19 +148,37 @@ func (o *StepGitCredentialsOptions) Run() error {
 	if err != nil {
 		return errors.Wrap(err, "creating git credentials")
 	}
-	return o.createGitCredentialsFile(outFile, credentials)
+
+	if o.CredentialHelper {
+		helper, err := credentialhelper.CreateGitCredentialsHelper(os.Stdin, os.Stderr, credentials)
+		if err != nil {
+			return errors.Wrap(err, "unable to create git credential helper")
+		}
+		// the credential helper operation (get|store|remove) is passed as last argument to the helper
+		err = helper.Run(os.Args[len(os.Args)-1])
+		if err != nil {
+			return errors.Wrap(err, "error responding to git credential request")
+		}
+		return nil
+	} else {
+		outFile, err := o.determineOutputFile()
+		if err != nil {
+			return err
+		}
+
+		return o.createGitCredentialsFile(outFile, credentials)
+	}
 }
 
-func (o *StepGitCredentialsOptions) GitCredentialsFileData(credentials []credentials) ([]byte, error) {
+func (o *StepGitCredentialsOptions) GitCredentialsFileData(credentials []credentialhelper.GitCredential) ([]byte, error) {
 	var buffer bytes.Buffer
-	for _, creds := range credentials {
-		u, err := url.Parse(creds.serviceURL)
+	for _, gitCredential := range credentials {
+		u, err := gitCredential.URL()
 		if err != nil {
-			log.Logger().Warnf("Ignoring invalid git service URL %q", creds.serviceURL)
+			log.Logger().Warnf("Ignoring incomplete git credentials %q", gitCredential)
 			continue
 		}
 
-		u.User = url.UserPassword(creds.user, creds.password)
 		buffer.WriteString(u.String() + "\n")
 		// Write the https protocol in case only https is set for completeness
 		if u.Scheme == "http" {
@@ -185,7 +207,7 @@ func (o *StepGitCredentialsOptions) determineOutputFile() (string, error) {
 }
 
 // CreateGitCredentialsFileFromUsernameAndToken creates the git credentials into file using the provided username, token & url
-func (o *StepGitCredentialsOptions) createGitCredentialsFile(fileName string, credentials []credentials) error {
+func (o *StepGitCredentialsOptions) createGitCredentialsFile(fileName string, credentials []credentialhelper.GitCredential) error {
 	data, err := o.GitCredentialsFileData(credentials)
 	if err != nil {
 		return errors.Wrap(err, "creating git credentials")
@@ -199,8 +221,8 @@ func (o *StepGitCredentialsOptions) createGitCredentialsFile(fileName string, cr
 }
 
 // CreateGitCredentialsFromAuthService creates the git credentials using the auth config service
-func (o *StepGitCredentialsOptions) CreateGitCredentialsFromAuthService(authConfigSvc auth.ConfigService) ([]credentials, error) {
-	var credentialList []credentials
+func (o *StepGitCredentialsOptions) CreateGitCredentialsFromAuthService(authConfigSvc auth.ConfigService) ([]credentialhelper.GitCredential, error) {
+	var credentialList []credentialhelper.GitCredential
 
 	cfg := authConfigSvc.Config()
 	if cfg == nil {
@@ -236,10 +258,9 @@ func (o *StepGitCredentialsOptions) CreateGitCredentialsFromAuthService(authConf
 				continue
 			}
 
-			credential := credentials{
-				user:       username,
-				password:   password,
-				serviceURL: server.URL,
+			credential, err := credentialhelper.CreateGitCredentialFromURL(server.URL, username, password)
+			if err != nil {
+				return nil, errors.Wrapf(err, "invalid git auth information")
 			}
 
 			credentialList = append(credentialList, credential)

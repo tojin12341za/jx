@@ -432,6 +432,8 @@ func ForkAndPullRepo(gitURL string, dir string, baseRef string, branchName strin
 		return "", "", nil, nil, errors.Wrapf(err, "failed to parse gitter URL %s", gitURL)
 	}
 
+	log.Logger().Debugf("ForkAndPullRepo gitURL: %s dir: %s baseRef: %s branchName: %s forkName: %s", gitURL, dir, baseRef, branchName, forkName)
+
 	username := provider.CurrentUsername()
 	originalOrg := originalInfo.Organisation
 	originalRepo := originalInfo.Name
@@ -517,32 +519,43 @@ func ForkAndPullRepo(gitURL string, dir string, baseRef string, branchName strin
 			return "", "", nil, nil, errors.WithStack(err)
 		}
 	} else {
-		err = gitter.StashPush(dir)
-		stashed = true
+		err = gitter.Add(dir, ".")
 		if err != nil {
 			return "", "", nil, nil, errors.WithStack(err)
 		}
+		err = gitter.StashPush(dir)
+		if err != nil {
+			return "", "", nil, nil, errors.WithStack(err)
+		}
+		stashed = true
 	}
 
-	// The long form of "git clone" has the advantage of working fine on an existing git repo and avoids checking out master
-	// and then another branch
-	err = gitter.SetRemoteURL(dir, originRemote, originURL)
+	// configure jx as git credential helper for this repo
+	err = configureJxAsGitCredentialHelper(dir, gitter)
+	if err != nil {
+		return "", "", nil, nil, errors.Wrap(err, "unable to configure jx as git credential helper")
+	}
+
+	originURLWithUser, err := addUserToURL(originURL, username)
+	if err != nil {
+		return "", "", nil, nil, errors.Wrapf(err, "unable to add username to git url %s", originURL)
+	}
+	err = gitter.SetRemoteURL(dir, originRemote, originURLWithUser)
 	if err != nil {
 		return "", "", nil, nil, errors.Wrapf(err, "failed to set %s url to %s", originRemote, originURL)
 	}
 	if fork {
 		upstreamRemote = "upstream"
-		err := gitter.SetRemoteURL(dir, upstreamRemote, upstreamInfo.CloneURL)
+		upstreamURLWithUser, err := addUserToURL(upstreamInfo.CloneURL, username)
+		if err != nil {
+			return "", "", nil, nil, errors.Wrapf(err, "unable to add username to git url %s", upstreamInfo.CloneURL)
+		}
+		err = gitter.SetRemoteURL(dir, upstreamRemote, upstreamURLWithUser)
 		if err != nil {
 			return "", "", nil, nil, errors.Wrapf(err, "setting remote upstream %q in forked environment repo", gitURL)
 		}
 	}
 
-	userDetails := provider.UserAuth()
-	originFetchURL, err := gitter.CreateAuthenticatedURL(originURL, &userDetails)
-	if err != nil {
-		return "", "", nil, nil, errors.Wrapf(err, "failed to create authenticated fetch URL for %s", originURL)
-	}
 	branchNameUUID, err := uuid.NewV4()
 	if err != nil {
 		return "", "", nil, nil, errors.WithStack(err)
@@ -550,7 +563,7 @@ func ForkAndPullRepo(gitURL string, dir string, baseRef string, branchName strin
 	originFetchBranch := branchNameUUID.String()
 
 	var upstreamFetchBranch string
-	err = gitter.FetchBranch(dir, originFetchURL, fmt.Sprintf("%s:%s", branchName, originFetchBranch))
+	err = gitter.FetchBranch(dir, "origin", fmt.Sprintf("%s:%s", branchName, originFetchBranch))
 
 	if err != nil {
 		if IsCouldntFindRemoteRefError(err, branchName) { // We can safely ignore missing remote branches, as they just don't exist
@@ -561,21 +574,17 @@ func ForkAndPullRepo(gitURL string, dir string, baseRef string, branchName strin
 	}
 
 	if upstreamRemote != originRemote || baseRef != branchName {
-		upstreamFetchURL, err := gitter.CreateAuthenticatedURL(upstreamInfo.CloneURL, &userDetails)
 		branchNameUUID, err := uuid.NewV4()
 		if err != nil {
 			return "", "", nil, nil, errors.WithStack(err)
 		}
 		upstreamFetchBranch = branchNameUUID.String()
-		if err != nil {
-			return "", "", nil, nil, errors.Wrapf(err, "failed to create authenticated fetch URL for %s", upstreamInfo.CloneURL)
-		}
+
 		// We're going to start our work from baseRef on the upstream
-		err = gitter.FetchBranch(dir, upstreamFetchURL, fmt.Sprintf("%s:%s", baseRef, upstreamFetchBranch))
+		err = gitter.FetchBranch(dir, upstreamRemote, fmt.Sprintf("%s:%s", baseRef, upstreamFetchBranch))
 		if err != nil {
 			return "", "", nil, nil, errors.WithStack(err)
 		}
-
 	}
 
 	// Work out what branch to use and check it out
@@ -616,7 +625,11 @@ func ForkAndPullRepo(gitURL string, dir string, baseRef string, branchName strin
 
 	// Merge in any local committed changes we found
 	if len(toCherryPick) > 0 {
-		log.Logger().Infof("Attempting to cherry pick commits that were on %s but not yet pushed", localBranchName)
+		var shas = make([]string, len(toCherryPick))
+		for _, commit := range toCherryPick {
+			shas = append(shas, commit.SHA)
+		}
+		log.Logger().Debugf("Attempting to cherry pick commits %s that were on %s but not yet pushed", shas, localBranchName)
 	}
 	for _, c := range toCherryPick {
 		err = gitter.CherryPick(dir, c.SHA)
@@ -656,6 +669,29 @@ func ForkAndPullRepo(gitURL string, dir string, baseRef string, branchName strin
 	}
 
 	return dir, baseRef, upstreamInfo, forkInfo, nil
+}
+
+func configureJxAsGitCredentialHelper(dir string, gitter Gitter) error {
+	// configure jx as git credential helper for this repo
+	jxProcessBinary, err := os.Executable()
+	if err != nil {
+		return errors.Wrapf(err, "unable to determine jx binary location")
+	}
+	return gitter.Config(dir, "--local", "credential.helper", fmt.Sprintf("%s step git credentials --credential-helper", jxProcessBinary))
+}
+
+func addUserToURL(gitURL string, user string) (string, error) {
+	u, err := url.Parse(gitURL)
+	if err != nil {
+		return "", errors.Wrapf(err, "invalid git URL: %s", gitURL)
+	}
+
+	if user != "" {
+		userInfo := url.User(user)
+		u.User = userInfo
+	}
+
+	return u.String(), nil
 }
 
 // A PullRequestFilter defines a filter for finding pull requests
@@ -808,7 +844,12 @@ func DuplicateGitRepoFromCommitish(toOrg string, toName string, fromGitURL strin
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	log.Logger().Debugf("cloning repo from %s", fromInfo.CloneURL)
+	// TODO issue-5772
+	//defer func() {
+	//	err = os.RemoveAll(dir)
+	//	log.Logger().Warnf("unable to delete temporary directory %s", dir)
+	//}()
+	log.Logger().Debugf("Using %s to duplicate git repo %s", dir, fromGitURL)
 	err = gitter.Clone(fromInfo.CloneURL, dir)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to clone %s", fromInfo.CloneURL)
@@ -855,16 +896,20 @@ func DuplicateGitRepoFromCommitish(toOrg string, toName string, fromGitURL strin
 		return nil, err
 	}
 
-	userDetails := provider.UserAuth()
-	duplicatePushURL, err := gitter.CreateAuthenticatedURL(duplicateInfo.CloneURL, &userDetails)
+	err = configureJxAsGitCredentialHelper(dir, gitter)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create push URL for %s", duplicateInfo.CloneURL)
+		return nil, errors.Wrap(err, "unable to configure jx as git credential helper")
 	}
-	err = gitter.SetRemoteURL(dir, "origin", duplicateInfo.CloneURL)
+	username := provider.CurrentUsername()
+	cloneURLWithUser, err := addUserToURL(duplicateInfo.CloneURL, username)
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to add username to git url %s", duplicateInfo.CloneURL)
+	}
+	err = gitter.SetRemoteURL(dir, "origin", cloneURLWithUser)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to set remote url to %s", duplicateInfo.CloneURL)
 	}
-	err = gitter.Push(dir, duplicatePushURL, true, fmt.Sprintf("%s:%s", "HEAD", toBranch))
+	err = gitter.Push(dir, "origin", true, fmt.Sprintf("%s:%s", "HEAD", toBranch))
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to push HEAD to %s", toBranch)
 	}
