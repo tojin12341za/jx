@@ -492,9 +492,9 @@ func ModifyEnvironmentRequirements(out io.Writer, devRequirements *config.Requir
 			remoteRequirements.Cluster.GitServer = gits.GitHubURL
 		}
 	}
-	if remoteRequirements.Cluster.Namespace == "" {
-		remoteRequirements.Cluster.Namespace = env.Spec.Namespace
-	}
+	remoteRequirements.Cluster.Namespace = env.Spec.Namespace
+	log.Logger().Infof("setting the remote environment %s requirements namespace to %s", env.Name, remoteRequirements.Cluster.Namespace)
+
 	if remoteRequirements.VersionStream.URL == "" {
 		remoteRequirements.VersionStream.URL = devRequirements.VersionStream.URL
 	}
