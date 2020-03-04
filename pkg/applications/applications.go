@@ -1,12 +1,18 @@
 package applications
 
 import (
+	"io/ioutil"
+
 	v1 "github.com/jenkins-x/jx/pkg/apis/jenkins.io/v1"
+	"github.com/jenkins-x/jx/pkg/cloud"
 	"github.com/jenkins-x/jx/pkg/cmd/clients"
+	"github.com/jenkins-x/jx/pkg/config"
 	"github.com/jenkins-x/jx/pkg/flagger"
+	"github.com/jenkins-x/jx/pkg/gits"
 	"github.com/jenkins-x/jx/pkg/kube"
 	"github.com/jenkins-x/jx/pkg/kube/naming"
 	"github.com/jenkins-x/jx/pkg/kube/services"
+	"github.com/jenkins-x/jx/pkg/log"
 	"github.com/jenkins-x/jx/pkg/util"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
@@ -132,11 +138,18 @@ func GetApplications(factory clients.Factory) (List, error) {
 	deployments := make(map[string]map[string]appsv1.Deployment)
 	for _, env := range permanentEnvsMap {
 		if env.Spec.Kind != v1.EnvironmentKindTypeDevelopment {
-			envDeployments, err := kube.GetDeployments(kubeClient, env.Spec.Namespace)
-			if err != nil {
-				return list, err
+			var envDeployments map[string]appsv1.Deployment
+			if env.Spec.RemoteCluster {
+				envDeployments, err = GetRemoteDeployments(factory, env)
+				if err != nil {
+					return list, err
+				}
+			} else {
+				envDeployments, err = kube.GetDeployments(kubeClient, env.Spec.Namespace)
+				if err != nil {
+					return list, err
+				}
 			}
-
 			deployments[env.Spec.Namespace] = envDeployments
 		}
 	}
@@ -147,6 +160,90 @@ func GetApplications(factory clients.Factory) (List, error) {
 	}
 
 	return list, nil
+}
+
+// GetRemoteDeployments finds the remote cluster's
+func GetRemoteDeployments(factory clients.Factory, env *v1.Environment) (map[string]appsv1.Deployment, error) {
+	gitURL := env.Spec.Source.URL
+	if gitURL == "" {
+		log.Logger().Warnf("environment %s does not have a git source URL", env.Name)
+		return nil, nil
+	}
+	requirements, err := GetRequirementsFromGit(gitURL)
+	if err != nil {
+		return nil, err
+	}
+
+	ns := requirements.Cluster.Namespace
+	if ns == "" {
+		ns = env.Spec.Namespace
+		if ns == "" {
+			ns = "jx"
+		}
+	}
+
+	kubeClient, err := getKubeClientFromRequirements(requirements, factory)
+	if err != nil {
+		return nil, err
+	}
+	if kubeClient == nil {
+		log.Logger().Warnf("remote connection to environment %s not supported for provider %s", env.Name, requirements.Cluster.Provider)
+		return nil, nil
+	}
+	return kube.GetDeployments(kubeClient, env.Spec.Namespace)
+}
+
+func getKubeClientFromRequirements(requirements *config.RequirementsConfig, factory clients.Factory) (kubernetes.Interface, error) {
+	if requirements.Cluster.Provider == cloud.GKE {
+		project := requirements.Cluster.ProjectID
+		clusterName := requirements.Cluster.ClusterName
+		zone := requirements.Cluster.Zone
+		if project == "" {
+			log.Logger().Warnf("requirements missing cluster.project")
+			return nil, nil
+		}
+		if clusterName == "" {
+			log.Logger().Warnf("requirements missing cluster.clusterName")
+			return nil, nil
+		}
+		if zone == "" {
+			log.Logger().Warnf("requirements missing cluster.zone")
+			return nil, nil
+		}
+		kubeConfig, err := GetWorkspaceKubeConfig(true, project, clusterName, "", zone)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to create KubeConfig for project %s cluster %s zone %s", project, clusterName, zone)
+		}
+
+		factory, err := CreateFactoryFromKubeConfig(kubeConfig)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to create kube client factory for project %s cluster %s zone %s", project, clusterName, zone)
+		}
+		return factory.CreateKubeClient()
+	}
+	return nil, nil
+}
+
+// GetRequirementsFromGit clones the given git repository to get the requirements
+func GetRequirementsFromGit(gitURL string) (*config.RequirementsConfig, error) {
+	tempDir, err := ioutil.TempDir("", "jx-boot-")
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create temp dir")
+	}
+
+	log.Logger().Infof("cloning %s to %s", gitURL, tempDir)
+
+	gitter := gits.NewGitCLI()
+	err = gitter.Clone(gitURL, tempDir)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to git clone %s to dir %s", gitURL, tempDir)
+	}
+
+	requirements, _, err := config.LoadRequirementsConfig(tempDir)
+	if err != nil {
+		return requirements, errors.Wrapf(err, "failed to requirements YAML file from %s", tempDir)
+	}
+	return requirements, nil
 }
 
 func getDeploymentAppNameInEnvironment(d appsv1.Deployment, e *v1.Environment) (string, error) {
