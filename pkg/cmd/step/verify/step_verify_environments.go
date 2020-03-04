@@ -492,6 +492,9 @@ func ModifyEnvironmentRequirements(out io.Writer, devRequirements *config.Requir
 			remoteRequirements.Cluster.GitServer = gits.GitHubURL
 		}
 	}
+	if env.Spec.Namespace == "" {
+		env.Spec.Namespace = "jx-" + env.Name
+	}
 	remoteRequirements.Cluster.Namespace = env.Spec.Namespace
 	log.Logger().Infof("setting the remote environment %s requirements namespace to %s", env.Name, remoteRequirements.Cluster.Namespace)
 
