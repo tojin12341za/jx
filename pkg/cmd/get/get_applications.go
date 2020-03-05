@@ -154,7 +154,14 @@ func (o *GetApplicationsOptions) generateTable(kubeClient kubernetes.Interface, 
 							row = append(row, d.Pods())
 						}
 						if !o.HideUrl {
-							row = append(row, d.URL(kubeClient, a))
+							kc := kubeClient
+							if list.EnvironmentKubeClients != nil {
+								kc2 := list.EnvironmentKubeClients[k]
+								if kc2 != nil {
+									kc = kc2
+								}
+							}
+							row = append(row, d.URL(kc, a))
 						}
 					}
 				} else {

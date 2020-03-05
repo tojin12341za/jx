@@ -1,6 +1,7 @@
 module github.com/jenkins-x/jx
 
 require (
+	cloud.google.com/go v0.34.0
 	code.gitea.io/sdk v0.0.0-20180702024448-79a281c4e34a
 	contrib.go.opencensus.io/exporter/prometheus v0.1.0 // indirect
 	github.com/Azure/draft v0.15.0
@@ -131,6 +132,7 @@ require (
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	golang.org/x/sys v0.0.0-20190616124812-15dcb6c0061f
 	golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7 // indirect
+	google.golang.org/genproto v0.0.0-20190425155659-357c62f0e4bb
 	gopkg.in/AlecAivazis/survey.v1 v1.8.3
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6 // indirect
 	gopkg.in/src-d/go-billy.v4 v4.2.0 // indirect

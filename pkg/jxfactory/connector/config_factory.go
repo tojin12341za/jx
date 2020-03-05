@@ -32,7 +32,7 @@ func (f *ConfigClientFactory) CreateApiExtensionsClient() (apiextensionsclientse
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create ApiExtensionsClient for remote cluster %s", f.name)
 	}
-	log.Logger().Infof("creating ApiExtensionsClient for cluster %s", f.name)
+	log.Logger().Debugf("creating ApiExtensionsClient for cluster %s", f.name)
 	return client, nil
 
 }
@@ -43,7 +43,7 @@ func (f *ConfigClientFactory) CreateKubeClient() (kubernetes.Interface, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create KubeClient for remote cluster %s", f.name)
 	}
-	log.Logger().Infof("creating KubeClient for cluster %s", f.name)
+	log.Logger().Debugf("creating KubeClient for cluster %s", f.name)
 	return client, nil
 }
 
@@ -53,7 +53,7 @@ func (f *ConfigClientFactory) CreateJXClient() (versioned.Interface, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create JXClient for remote cluster %s", f.name)
 	}
-	log.Logger().Infof("creating JXClient for cluster %s", f.name)
+	log.Logger().Debugf("creating JXClient for cluster %s", f.name)
 	return client, nil
 }
 
@@ -63,7 +63,7 @@ func (f *ConfigClientFactory) CreateTektonClient() (tektonclient.Interface, erro
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create TektonClient for remote cluster %s", f.name)
 	}
-	log.Logger().Infof("creating TektonClient for cluster %s", f.name)
+	log.Logger().Debugf("creating TektonClient for cluster %s", f.name)
 	return client, nil
 }
 
@@ -73,6 +73,6 @@ func (f *ConfigClientFactory) CreateDynamicClient() (*dynamic.APIHelper, error) 
 	if err != nil {
 		return nil, err
 	}
-	log.Logger().Infof("creating DynamicClient for cluster %s", f.name)
+	log.Logger().Debugf("creating DynamicClient for cluster %s", f.name)
 	return client, nil
 }
