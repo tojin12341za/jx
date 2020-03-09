@@ -554,7 +554,7 @@ func (h *HelmCLI) ListReleases(ns string) (map[string]ReleaseSummary, []string, 
 	result := make(map[string]ReleaseSummary, 0)
 	keys := make([]string, 0)
 	if len(lines) > 1 {
-		if h.Binary == "helm" {
+		if h.Binary == "helm" && h.BinVersion != V3 {
 			for _, line := range lines[1:] {
 				fields := strings.Fields(line)
 				if len(fields) == 10 || len(fields) == 11 {
@@ -580,7 +580,7 @@ func (h *HelmCLI) ListReleases(ns string) (map[string]ReleaseSummary, []string, 
 		} else {
 			for _, line := range lines[1:] {
 				fields := strings.Fields(line)
-				if len(fields) == 9 {
+				if len(fields) >= 9 {
 					chartFullName := fields[8]
 					lastDash := strings.LastIndex(chartFullName, "-")
 					releaseName := fields[0]
@@ -596,7 +596,7 @@ func (h *HelmCLI) ListReleases(ns string) (map[string]ReleaseSummary, []string, 
 						ChartVersion:  chartFullName[lastDash+1:],
 					}
 				} else {
-					return nil, nil, errors.Errorf("Cannot parse %s as helm3 list output", line)
+					return nil, nil, errors.Errorf("Cannot parse %s as helm3 list output as has %d fields", line, len(fields))
 				}
 			}
 		}
