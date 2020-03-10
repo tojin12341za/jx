@@ -3,6 +3,7 @@ package verify
 import (
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -502,6 +503,19 @@ func (o *StepVerifyPreInstallOptions) VerifyInstallConfig(kubeClient kubernetes.
 	return nil
 }
 
+// getIPAddress return the preferred outbound ip of this machine
+func getIPAddress() (string, error) {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		return "", err
+	}
+	defer conn.Close()
+
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+
+	return localAddr.IP.String(), nil
+}
+
 // gatherRequirements gathers cluster requirements and connects to the cluster if required
 func (o *StepVerifyPreInstallOptions) gatherRequirements(requirements *config.RequirementsConfig, requirementsFileName string) (*config.RequirementsConfig, error) {
 	log.Logger().Debug("Gathering Requirements...")
@@ -545,6 +559,31 @@ func (o *StepVerifyPreInstallOptions) gatherRequirements(requirements *config.Re
 		} else if !answer {
 			return requirements, errors.New("finishing execution")
 		}
+	}
+
+	if requirements.Cluster.Provider == cloud.KIND {
+		ip, err := getIPAddress()
+		if err != nil {
+			return nil, err
+		}
+
+		if requirements.Cluster.Registry == "" {
+			if ip != "" {
+				requirements.Cluster.Registry = fmt.Sprintf("%s:5000", ip)
+				log.Logger().Infof("defaulting to container registry: %s", util.ColorInfo(requirements.Cluster.Registry))
+			} else {
+				log.Logger().Info("cannot detect the external IP address of this machine. Please update the requirements cluster.Registry value to the host/IP address and port of your container registry")
+			}
+		}
+		if requirements.Ingress.Domain == "" {
+			if ip != "" {
+				requirements.Ingress.Domain = fmt.Sprintf("%s.nip.io", ip)
+				log.Logger().Infof("defaulting to ingress domain: %s", util.ColorInfo(requirements.Ingress.Domain))
+			} else {
+				log.Logger().Info("cannot detect the external IP address of this machine. Please update the requirements ingress.domain value to access your ingress controller")
+			}
+		}
+		requirements.Ingress.IgnoreLoadBalancer = true
 	}
 
 	if requirements.Cluster.Provider == cloud.GKE {
@@ -1016,8 +1055,18 @@ func (o *StepVerifyPreInstallOptions) ValidateRequirements(requirements *config.
 		}
 	}
 
-	// lets verify that we have a repository name defined for every environment
 	modified := false
+
+	if requirements.Helmfile {
+		// we don't yet support vault
+		if requirements.SecretStorage == config.SecretStorageTypeVault {
+			log.Logger().Warn("vault is not yet supported for helm 3 so defaulting to local instead")
+			requirements.SecretStorage = config.SecretStorageTypeLocal
+			modified = true
+		}
+	}
+
+	// lets verify that we have a repository name defined for every environment
 	for i, env := range requirements.Environments {
 		if env.Repository == "" {
 			clusterName := requirements.Cluster.ClusterName
