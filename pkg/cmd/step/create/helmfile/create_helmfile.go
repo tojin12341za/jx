@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/jenkins-x/jx/pkg/cloud"
 	"github.com/jenkins-x/jx/pkg/config"
 	"github.com/jenkins-x/jx/pkg/envctx"
 	helmfile2 "github.com/jenkins-x/jx/pkg/helmfile"
@@ -337,6 +338,10 @@ func (o *CreateHelmfileOptions) generateHelmFile(ec *envctx.EnvironmentContext, 
 		Releases:     releases,
 	}
 
+	// if using kind lets add a big timeout as things can be very slow to download
+	if ec.Requirements != nil && ec.Requirements.Cluster.Provider == cloud.KIND {
+		h.HelmDefaults.Timeout = 2 * 60 * 60
+	}
 	data, err := yaml.Marshal(h)
 	if err != nil {
 		return errors.Wrapf(err, "failed to marshal helmfile data")
