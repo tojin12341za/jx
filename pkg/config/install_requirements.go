@@ -132,10 +132,12 @@ const (
 	// SecretStorageTypeLocal specifies that we use the local file system in
 	// `~/.jx/localSecrets` to store secrets
 	SecretStorageTypeLocal SecretStorageType = "local"
+	// SecretStorageTypeGSM uses Google Secret Manager to store secrets
+	SecretStorageTypeGSM SecretStorageType = "gsm"
 )
 
 // SecretStorageTypeValues the string values for the secret storage
-var SecretStorageTypeValues = []string{"local", "vault"}
+var SecretStorageTypeValues = []string{"gsm", "local", "vault"}
 
 // WebhookType is the type of a webhook strategy
 type WebhookType string
@@ -224,6 +226,10 @@ type EnvironmentConfig struct {
 
 // IngressConfig contains dns specific requirements
 type IngressConfig struct {
+	// Annotations annotations added to generated Ingress resources by default
+	Annotations map[string]string `json:"annotations,omitempty"`
+	// ApiVersion specifies the API version for the generated ingress resousrces
+	ApiVersion string `json:"apiVersion,omitempty"`
 	// DNS is enabled
 	ExternalDNS bool `json:"externalDNS"`
 	// CloudDNSSecretName secret name which contains the service account for external-dns and cert-manager issuer to
@@ -243,6 +249,9 @@ type IngressConfig struct {
 	TLS TLSConfig `json:"tls"`
 	// DomainIssuerURL contains a URL used to retrieve a Domain
 	DomainIssuerURL string `json:"domainIssuerURL,omitempty"`
+	// ServiceType the Ingress controller Service Type.
+	// If not specified we assume 'LoadBalancer'. If using on premise, kind or minikube you may need to use NodePort if you don't have a real load balancer
+	ServiceType string `json:"serviceType,omitempty"`
 }
 
 // TLSConfig contains TLS specific requirements
@@ -469,6 +478,10 @@ type RequirementsValues struct {
 type RequirementsConfig struct {
 	// AutoUpdate contains auto update config
 	AutoUpdate AutoUpdateConfig `json:"autoUpdate,omitempty"`
+	// BuildPackURL  the git URL of the build pack to use
+	BuildPackURL string `json:"buildPackURL,omitempty"`
+	// BuildPackRef the git ref (branch, tag, SHA) of the build pack to use
+	BuildPackRef string `json:"buildPackRef,omitempty"`
 	// BootConfigURL contains the url to which the dev environment is associated with
 	BootConfigURL string `json:"bootConfigURL,omitempty"`
 	// Cluster contains cluster specific requirements

@@ -561,7 +561,13 @@ func (o *StepVerifyPreInstallOptions) gatherRequirements(requirements *config.Re
 		}
 	}
 
-	if requirements.Cluster.Provider == cloud.KIND {
+	switch requirements.Cluster.Provider {
+	case cloud.KIND, cloud.MINIKUBE, cloud.MINISHIFT:
+		if requirements.Ingress.ServiceType == "" {
+			requirements.Ingress.ServiceType = "NodePort"
+		}
+		requirements.Ingress.IgnoreLoadBalancer = true
+
 		ip, err := getIPAddress()
 		if err != nil {
 			return nil, err
@@ -583,7 +589,6 @@ func (o *StepVerifyPreInstallOptions) gatherRequirements(requirements *config.Re
 				log.Logger().Info("cannot detect the external IP address of this machine. Please update the requirements ingress.domain value to access your ingress controller")
 			}
 		}
-		requirements.Ingress.IgnoreLoadBalancer = true
 	}
 
 	if requirements.Cluster.Provider == cloud.GKE {
