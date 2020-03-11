@@ -31,7 +31,7 @@ func TestAppendMatchingDeployments(t *testing.T) {
 		{
 			"Source repository doesn't have a matching deployment",
 			List{
-				[]Application{
+				Items: []Application{
 					{
 						&v1.SourceRepository{
 							Spec: v1.SourceRepositorySpec{
@@ -49,7 +49,7 @@ func TestAppendMatchingDeployments(t *testing.T) {
 		{
 			"Source repository matches a single deployment",
 			List{
-				[]Application{
+				Items: []Application{
 					{
 						&v1.SourceRepository{
 							Spec: v1.SourceRepositorySpec{
@@ -86,7 +86,7 @@ func TestAppendMatchingDeployments(t *testing.T) {
 		{
 			"Source repository matches multiple deployments",
 			List{
-				[]Application{
+				Items: []Application{
 					{
 						&v1.SourceRepository{
 							Spec: v1.SourceRepositorySpec{

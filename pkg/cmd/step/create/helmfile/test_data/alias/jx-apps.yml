@@ -1,0 +1,5 @@
+apps:
+- name: jenkins-x/lighthouse
+  alias: foo
+- name: jenkins-x/lighthouse
+  alias: bar

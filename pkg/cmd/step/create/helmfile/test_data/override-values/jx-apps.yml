@@ -1,0 +1,4 @@
+apps:
+- name: jenkins-x/lighthouse
+- name: stable/nginx-ingress
+  phase: system

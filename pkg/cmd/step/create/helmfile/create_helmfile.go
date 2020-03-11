@@ -273,8 +273,12 @@ func (o *CreateHelmfileOptions) generateHelmFile(ec *envctx.EnvironmentContext, 
 		extraValuesFiles = o.addExtraAppValues(*app, extraValuesFiles, "values.yaml", phase)
 		extraValuesFiles = o.addExtraAppValues(*app, extraValuesFiles, "values.yaml.gotmpl", phase)
 
+		alias := details.LocalName
+		if app.Alias != "" {
+			alias = app.Alias
+		}
 		release := helmfile2.ReleaseSpec{
-			Name:      details.LocalName,
+			Name:      alias,
 			Namespace: applications[i].Namespace,
 			Version:   version,
 			Chart:     chartName,
@@ -370,22 +374,38 @@ func (o *CreateHelmfileOptions) writeHelmfile(err error, phase string, data []by
 	return nil
 }
 
-func (o *CreateHelmfileOptions) addExtraAppValues(app config.App, newValuesFiles []string, valuesFilename, phase string) []string {
-	fileName := path.Join(o.dir, phase, app.Name, valuesFilename)
-	exists, _ := util.FileExists(fileName)
-	if exists {
-		newValuesFiles = append(newValuesFiles, path.Join(app.Name, valuesFilename))
+func (o *CreateHelmfileOptions) addExtraAppValues(app config.App, newValuesFiles []string, valuesFilename, generatePhase string) []string {
+	phases := []string{generatePhase}
+	if generatePhase == "system" {
+		phases = append(phases, "apps")
 	}
-	parts := strings.Split(app.Name, "/")
-	if len(parts) == 2 {
-		localName := parts[1]
-		fileName := path.Join(o.dir, phase, localName, valuesFilename)
+	answer := newValuesFiles
+	for _, phase := range phases {
+		fileName := path.Join(o.dir, phase, app.Name, valuesFilename)
 		exists, _ := util.FileExists(fileName)
 		if exists {
-			newValuesFiles = append(newValuesFiles, path.Join(localName, valuesFilename))
+			if phase != generatePhase {
+				answer = append(answer, path.Join("..", phase, app.Name, valuesFilename))
+			} else {
+				answer = append(answer, path.Join(app.Name, valuesFilename))
+
+			}
+		}
+		parts := strings.Split(app.Name, "/")
+		if len(parts) == 2 {
+			localName := parts[1]
+			fileName := path.Join(o.dir, phase, localName, valuesFilename)
+			exists, _ := util.FileExists(fileName)
+			if exists {
+				if phase != generatePhase {
+					answer = append(answer, path.Join("..", phase, localName, valuesFilename))
+				} else {
+					answer = append(answer, path.Join(localName, valuesFilename))
+				}
+			}
 		}
 	}
-	return newValuesFiles
+	return answer
 }
 
 // this is a temporary function that wont be needed once helm 3 supports creating namespaces
@@ -415,7 +435,7 @@ func (o *CreateHelmfileOptions) ensureNamespaceExist(helmfileRepos []helmfile2.R
 				namespaceMatched = true
 			}
 		}
-		if !namespaceMatched {
+		if release.Namespace != "" && release.Namespace != currentNamespace && !namespaceMatched {
 			existingCreateNamespaceChartFound := false
 			for _, release := range helmfileReleases {
 				if release.Name == "namespace-"+release.Namespace {

@@ -49,6 +49,8 @@ type App struct {
 	Version string `json:"version,omitempty"`
 	// Description an optional description of the app
 	Description string `json:"description,omitempty"`
+	// Alias an optional alias of the app
+	Alias string `json:"alias,omitempty"`
 	// Values any explicit value files to be used
 	Values []string `json:"values,omitempty"`
 }

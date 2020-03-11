@@ -14,3 +14,6 @@ releases:
 - chart: jenkins-x/empty
   name: empty
   namespace: jx
+repositories:
+- name: jenkins-x
+  url: https://storage.googleapis.com/chartmuseum.jenkins-x.io

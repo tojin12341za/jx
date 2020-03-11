@@ -39,7 +39,7 @@ func TestGeneratedHelfiles(t *testing.T) {
 	rootTempDir, err := ioutil.TempDir("", "test-applications-config")
 	assert.NoError(t, err, "should create a temporary config dir")
 
-	for _, name := range []string{"dedupe_repositories", "empty-system", "empty"} {
+	for _, name := range []string{"dedupe_repositories", "empty-system", "empty", "alias", "namespace-chart", "override-values"} {
 		tempDir := filepath.Join(rootTempDir, name)
 		sourceDir := filepath.Join("test_data", name)
 		o := &CreateHelmfileOptions{
@@ -58,7 +58,7 @@ func TestGeneratedHelfiles(t *testing.T) {
 			_, want, err := loadHelmfile(path.Join(sourceDir, "expected", folder))
 			assert.NoError(t, err)
 
-			if diff := cmp.Diff(got, want); diff != "" {
+			if diff := cmp.Diff(strings.TrimSpace(got), strings.TrimSpace(want)); diff != "" {
 				t.Errorf("Unexpected helmfile generated for %s folder %s", name, folder)
 				t.Log(diff)
 

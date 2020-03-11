@@ -11,37 +11,22 @@ helmDefaults:
   verify: false
   wait: true
 releases:
-- chart: stable/nginx-ingress
-  name: nginx-ingress
-  namespace: nginx
-  needs:
-  - jx/namespace-nginx
-  values:
-  - test_data/jenkins-x-versions/apps/stable/nginx-ingress/values.yaml.gotmpl
-  - ../jx-requirements.values.yaml.gotmpl
 - chart: stable/velero
   name: velero
-  namespace: velero
+  namespace: foo
   needs:
-  - jx/namespace-velero
+  - jx/namespace-foo
   values:
   - test_data/jenkins-x-versions/apps/stable/velero/values.yaml.gotmpl
   - ../jx-requirements.values.yaml.gotmpl
   version: 2.7.4
 - chart: zloeber/namespace
-  name: namespace-nginx
+  name: namespace-foo
   namespace: jx
   values:
-  - generated/nginx/values.yaml
-- chart: zloeber/namespace
-  name: namespace-velero
-  namespace: jx
-  values:
-  - generated/velero/values.yaml
+  - generated/foo/values.yaml
 repositories:
 - name: stable
   url: https://kubernetes-charts.storage.googleapis.com
-- name: zloeber
-  url: git+https://github.com/rawlingsj/helm-namespace@chart
 - name: zloeber
   url: git+https://github.com/rawlingsj/helm-namespace@chart

@@ -18,6 +18,7 @@ releases:
   - jx/namespace-nginx
   values:
   - test_data/jenkins-x-versions/apps/stable/nginx-ingress/values.yaml.gotmpl
+  - ../jx-requirements.values.yaml.gotmpl
 - chart: stable/velero
   name: velero
   namespace: velero
@@ -25,6 +26,7 @@ releases:
   - jx/namespace-velero
   values:
   - test_data/jenkins-x-versions/apps/stable/velero/values.yaml.gotmpl
+  - ../jx-requirements.values.yaml.gotmpl
   version: 2.7.4
 - chart: zloeber/namespace
   name: namespace-nginx
@@ -40,6 +42,6 @@ repositories:
 - name: stable
   url: https://kubernetes-charts.storage.googleapis.com
 - name: zloeber
-  url: git+https://github.com/zloeber/helm-namespace@chart
+  url: git+https://github.com/rawlingsj/helm-namespace@chart
 - name: zloeber
-  url: git+https://github.com/zloeber/helm-namespace@chart
+  url: git+https://github.com/rawlingsj/helm-namespace@chart

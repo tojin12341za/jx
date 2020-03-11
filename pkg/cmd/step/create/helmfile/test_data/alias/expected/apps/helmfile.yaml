@@ -11,12 +11,14 @@ helmDefaults:
   verify: false
   wait: true
 releases:
-- chart: bitnami/nexus
-  name: nexus
-  namespace: jx
+- chart: jenkins-x/lighthouse
+  name: foo
   values:
   - ../jx-requirements.values.yaml.gotmpl
-  version: 9.2.1
+- chart: jenkins-x/lighthouse
+  name: bar
+  values:
+  - ../jx-requirements.values.yaml.gotmpl
 repositories:
-- name: bitnami
-  url: https://charts.bitnami.com/bitnami
+- name: jenkins-x
+  url: https://storage.googleapis.com/chartmuseum.jenkins-x.io
