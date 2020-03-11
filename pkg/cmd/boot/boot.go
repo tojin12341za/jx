@@ -523,7 +523,7 @@ func (o *BootOptions) overrideRequirements(defaultBootConfigURL string) error {
 	}
 
 	o.defaultVersionStream(requirements)
-	if requirements.BootConfigURL == "" {
+	if requirements.BootConfigURL == "" && !requirements.Helmfile {
 		requirements.BootConfigURL = defaultBootConfigURL
 	}
 
