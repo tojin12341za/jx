@@ -267,6 +267,9 @@ func TestModifyEnvironmentRequirements(t *testing.T) {
 	devReq.VersionStream.Ref = "master"
 	devReq.VersionStream.URL = "https://github.com/jenkins-x/jenkins-x-versions.git"
 	devReq.Cluster.DevEnvApprovers = []string{"jstrachan", "rawlingsj"}
+	devReq.Cluster.Provider = "kind"
+	devReq.Ingress.IgnoreLoadBalancer = true
+
 	stagingReq := NewRemoteRequirementsConfig()
 	stagingEnv := kube.NewPermanentEnvironment("staging")
 	stagingEnv.Spec.RemoteCluster = true

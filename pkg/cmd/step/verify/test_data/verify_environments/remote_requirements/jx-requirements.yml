@@ -11,6 +11,7 @@ cluster:
   gitName: github
   gitServer: https://github.com
   namespace: jx-staging
+  provider: kind
 environments:
 - gitKind: github
   gitServer: https://github.com
@@ -32,6 +33,7 @@ helmfile: true
 ingress:
   domain: ""
   externalDNS: false
+  ignoreLoadBalancer: true
   namespaceSubDomain: -jx-staging.
   tls:
     email: ""

@@ -504,6 +504,8 @@ func ModifyEnvironmentRequirements(out io.Writer, devRequirements *config.Requir
 	if remoteRequirements.VersionStream.Ref == "" {
 		remoteRequirements.VersionStream.Ref = devRequirements.VersionStream.Ref
 	}
+	remoteRequirements.Ingress.IgnoreLoadBalancer = devRequirements.Ingress.IgnoreLoadBalancer
+
 	if remoteRequirements.Ingress.NamespaceSubDomain == "" {
 		remoteRequirements.Ingress.NamespaceSubDomain = fmt.Sprintf("-%s.", remoteRequirements.Cluster.Namespace)
 	}
