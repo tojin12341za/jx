@@ -2,9 +2,11 @@ package opts
 
 import (
 	jenkinsv1 "github.com/jenkins-x/jx/pkg/apis/jenkins.io/v1"
+	"github.com/jenkins-x/jx/pkg/config"
 	"github.com/jenkins-x/jx/pkg/kube"
 	"github.com/jenkins-x/jx/pkg/kube/services"
 	"github.com/jenkins-x/jx/pkg/log"
+	"github.com/pkg/errors"
 )
 
 // RegisterEnvironmentCRD registers the CRD for environmnt
@@ -56,8 +58,26 @@ func (o *CommonOptions) ResolveChartMuseumURL() (string, error) {
 		// lets try find a `chartmusem` ingress
 		var err2 error
 		answer, err2 = services.FindIngressURL(kubeClient, ns, "chartmuseum")
-		if err2 == nil {
+		if err2 == nil && answer != "" {
 			return answer, nil
+		}
+	}
+	if answer == "" {
+		// lets check the requirements
+		env, _, err := o.DevEnvAndTeamSettings()
+		if err != nil {
+			return answer, errors.Wrapf(err, "getting requirements")
+		}
+		if env != nil {
+			requirements, err := config.GetRequirementsConfigFromTeamSettings(&env.Spec.TeamSettings)
+			if err != nil {
+				return answer, errors.Wrapf(err, "getting requirements from dev Environment")
+			}
+			if requirements != nil {
+				if requirements.Cluster.ChartRepository != "" {
+					return requirements.Cluster.ChartRepository, nil
+				}
+			}
 		}
 	}
 	return answer, err
