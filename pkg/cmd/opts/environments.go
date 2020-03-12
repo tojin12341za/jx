@@ -7,6 +7,7 @@ import (
 	"github.com/jenkins-x/jx/pkg/kube/services"
 	"github.com/jenkins-x/jx/pkg/log"
 	"github.com/pkg/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 // RegisterEnvironmentCRD registers the CRD for environmnt
@@ -54,10 +55,16 @@ func (o *CommonOptions) ResolveChartMuseumURL() (string, error) {
 		return "", err
 	}
 	answer, err := services.FindServiceURL(kubeClient, ns, kube.ServiceChartMuseum)
-	if err != nil {
+	if err != nil && apierrors.IsNotFound(err) {
+		err = nil
+	}
+	if err != nil || answer == "" {
 		// lets try find a `chartmusem` ingress
 		var err2 error
 		answer, err2 = services.FindIngressURL(kubeClient, ns, "chartmuseum")
+		if err2 != nil && apierrors.IsNotFound(err2) {
+			err2 = nil
+		}
 		if err2 == nil && answer != "" {
 			return answer, nil
 		}
