@@ -52,7 +52,7 @@ func (o *CommonOptions) GetDevEnv() (gitOps bool, devEnv *jenkinsv1.Environment)
 func (o *CommonOptions) ResolveChartMuseumURL() (string, error) {
 	kubeClient, ns, err := o.KubeClientAndDevNamespace()
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "creating Kiube client")
 	}
 	answer, err := services.FindServiceURL(kubeClient, ns, kube.ServiceChartMuseum)
 	if err != nil && apierrors.IsNotFound(err) {
@@ -70,10 +70,13 @@ func (o *CommonOptions) ResolveChartMuseumURL() (string, error) {
 		}
 	}
 	if answer == "" {
-		// lets check the requirements
-		env, _, err := o.DevEnvAndTeamSettings()
+		jxClient, ns, err := o.JXClientAndDevNamespace()
 		if err != nil {
-			return answer, errors.Wrapf(err, "getting requirements")
+			return "", errors.Wrap(err, "creating JX client")
+		}
+		env, err := kube.GetDevEnvironment(jxClient, ns)
+		if err != nil && apierrors.IsNotFound(err) {
+			err = nil
 		}
 		if env != nil {
 			requirements, err := config.GetRequirementsConfigFromTeamSettings(&env.Spec.TeamSettings)
