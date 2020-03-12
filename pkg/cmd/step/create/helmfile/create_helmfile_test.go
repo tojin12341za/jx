@@ -35,7 +35,7 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-func TestGeneratedHelfiles(t *testing.T) {
+func TestGeneratedHelmfiles(t *testing.T) {
 	rootTempDir, err := ioutil.TempDir("", "test-applications-config")
 	assert.NoError(t, err, "should create a temporary config dir")
 

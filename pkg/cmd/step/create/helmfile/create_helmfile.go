@@ -44,6 +44,11 @@ var (
 		# Create a new helmfile.yaml from a jx-apps.yaml
 		jx create helmfile
 	`)
+
+	defaultKubectlApplyScript = `#!/bin/sh
+
+echo "this script allows you to kubectl apply resources or CRDs"
+`
 )
 
 // GeneratedValues is a struct that gets marshalled into helm values for creating namespaces via helm
@@ -88,6 +93,9 @@ func NewCmdCreateHelmfile(commonOpts *opts.CommonOptions) *cobra.Command {
 
 // Run implements the command
 func (o *CreateHelmfileOptions) Run() error {
+	if o.outputDir == "" {
+		o.outputDir = o.dir
+	}
 	apps, _, err := config.LoadAppConfig(o.dir)
 	if err != nil {
 		return errors.Wrap(err, "failed to load applications")
@@ -164,6 +172,11 @@ func (o *CreateHelmfileOptions) Run() error {
 		return errors.Wrap(err, "failed to generate system helmfile")
 	}
 
+
+	err = o.generateKubectlApplyScript(o.outputDir)
+	if err != nil {
+	  return err
+	}
 	return nil
 }
 
@@ -493,7 +506,7 @@ func (o *CreateHelmfileOptions) writeGeneratedNamespaceValues(namespace, phase s
 }
 
 func (o *CreateHelmfileOptions) ensureJxRequirementsYamlExists(requirements *config.RequirementsConfig) error {
-	fileName := filepath.Join(o.dir, config.RequirementsValuesFileName)
+	fileName := filepath.Join(o.outputDir, config.RequirementsValuesFileName)
 	exists, err := util.FileExists(fileName)
 	if err != nil {
 		return errors.Wrapf(err, "failed to check if file exists %s", fileName)
@@ -505,6 +518,23 @@ func (o *CreateHelmfileOptions) ensureJxRequirementsYamlExists(requirements *con
 	err = config.SaveRequirementsValuesFile(requirements, o.dir)
 	if err != nil {
 		return errors.Wrap(err, "failed to save requirements yaml file")
+	}
+	return nil
+}
+
+func (o *CreateHelmfileOptions) generateKubectlApplyScript(dir string) error {
+	name := filepath.Join(dir, "kubectl-apply.sh")
+	exists, err := util.FileExists(name)
+	if err != nil {
+	  return errors.Wrapf(err, "failed to check if file exists %s", name)
+	}
+	if exists {
+		return nil
+	}
+
+	err = ioutil.WriteFile(name, []byte(defaultKubectlApplyScript), util.DefaultFileWritePermissions)
+	if err != nil {
+		return errors.Wrapf(err, "failed to save file %s", name)
 	}
 	return nil
 }
