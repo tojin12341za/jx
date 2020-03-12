@@ -238,3 +238,11 @@ func (o *TestBootOptions) createTmpRequirements(t *testing.T) string {
 	require.NoError(t, err, "unable to copy test jx-requirements to tmp")
 	return tmpDir
 }
+
+func TestRemoveUserFromURL(t *testing.T) {
+	t.Parallel()
+
+	urlText := "https://someuser:sometoken@github.com/foo/bar"
+	actual := RemoveUserPasswordFromURL(urlText)
+	assert.Equal(t, "https://github.com/foo/bar", actual, "removing user/token from git URL %s", urlText)
+}

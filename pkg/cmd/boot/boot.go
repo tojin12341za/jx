@@ -2,6 +2,7 @@ package boot
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 
@@ -524,7 +525,7 @@ func (o *BootOptions) overrideRequirements(defaultBootConfigURL string) error {
 
 	o.defaultVersionStream(requirements)
 	if requirements.BootConfigURL == "" {
-		requirements.BootConfigURL = defaultBootConfigURL
+		requirements.BootConfigURL = RemoveUserPasswordFromURL(defaultBootConfigURL)
 	}
 
 	if err := requirements.SaveConfig(requirementsFile); err != nil {
@@ -532,6 +533,18 @@ func (o *BootOptions) overrideRequirements(defaultBootConfigURL string) error {
 	}
 
 	return nil
+}
+
+func RemoveUserPasswordFromURL(urlText string) string {
+	if urlText == "" {
+		return urlText
+	}
+	u, err := url.Parse(urlText)
+	if err != nil {
+		return urlText
+	}
+	u.User = nil
+	return u.String()
 }
 
 func (o *BootOptions) determineGitRef(resolver *versionstream.VersionResolver, requirements *config.RequirementsConfig, gitURL string) (string, error) {
