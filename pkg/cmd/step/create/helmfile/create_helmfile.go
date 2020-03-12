@@ -172,10 +172,9 @@ func (o *CreateHelmfileOptions) Run() error {
 		return errors.Wrap(err, "failed to generate system helmfile")
 	}
 
-
 	err = o.generateKubectlApplyScript(o.outputDir)
 	if err != nil {
-	  return err
+		return err
 	}
 	return nil
 }
@@ -526,15 +525,16 @@ func (o *CreateHelmfileOptions) generateKubectlApplyScript(dir string) error {
 	name := filepath.Join(dir, "kubectl-apply.sh")
 	exists, err := util.FileExists(name)
 	if err != nil {
-	  return errors.Wrapf(err, "failed to check if file exists %s", name)
+		return errors.Wrapf(err, "failed to check if file exists %s", name)
 	}
 	if exists {
 		return nil
 	}
 
-	err = ioutil.WriteFile(name, []byte(defaultKubectlApplyScript), util.DefaultFileWritePermissions)
+	err = ioutil.WriteFile(name, []byte(defaultKubectlApplyScript), 0755)
 	if err != nil {
 		return errors.Wrapf(err, "failed to save file %s", name)
 	}
+
 	return nil
 }
