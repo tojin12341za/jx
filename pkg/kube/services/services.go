@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -94,10 +95,16 @@ func GetServiceURLFromMap(services map[string]*v1.Service, name string) string {
 func FindServiceURL(client kubernetes.Interface, namespace string, name string) (string, error) {
 	log.Logger().Debugf("Finding service url for %s in namespace %s", name, namespace)
 	svc, err := client.CoreV1().Services(namespace).Get(name, meta_v1.GetOptions{})
+	if err != nil && apierrors.IsNotFound(err) {
+		err = nil
+	}
 	if err != nil {
 		return "", errors.Wrapf(err, "finding the service %s in namespace %s", name, namespace)
 	}
-	answer := GetServiceURL(svc)
+	answer := ""
+	if svc != nil {
+		answer = GetServiceURL(svc)
+	}
 	if answer != "" {
 		log.Logger().Debugf("Found service url %s", answer)
 		return answer, nil
@@ -107,12 +114,17 @@ func FindServiceURL(client kubernetes.Interface, namespace string, name string) 
 
 	// lets try find the service via Ingress
 	ing, err := client.ExtensionsV1beta1().Ingresses(namespace).Get(name, meta_v1.GetOptions{})
+	if err != nil && apierrors.IsNotFound(err) {
+		err = nil
+	}
 	if err != nil {
 		log.Logger().Debugf("Unable to finding ingress for %s in namespace %s - err %s", name, namespace, err)
 		return "", errors.Wrapf(err, "getting ingress for service %q in namespace %s", name, namespace)
 	}
-
-	url := IngressURL(ing)
+	url := ""
+	if ing != nil {
+		url = IngressURL(ing)
+	}
 	if url == "" {
 		log.Logger().Debugf("Unable to find service url via ingress for %s in namespace %s", name, namespace)
 	}
