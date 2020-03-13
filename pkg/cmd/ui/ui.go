@@ -147,20 +147,10 @@ func (o UIOptions) executePortForwardRoutine(serviceName string) {
 }
 
 func (o *UIOptions) getLocalURL(listOptions v1.ListOptions) (string, string, error) {
-	jxClient, ns, err := o.JXClient()
+	kubeClient, ns, err := o.KubeClientAndDevNamespace()
 	if err != nil {
 		return "", "", err
 	}
-	kubeClient, err := o.KubeClient()
-	if err != nil {
-		return "", "", err
-	}
-	apps, err := jxClient.JenkinsV1().Apps(ns).List(listOptions)
-	if err != nil || len(apps.Items) == 0 {
-		log.Logger().Errorf("Couldn't find the jx-app-ui app installed in the cluster. Did you add it via %s?", util.ColorInfo("jx add app jx-app-ui"))
-		return "", "", err
-	}
-
 	services, err := kubeClient.CoreV1().Services(ns).List(listOptions)
 	if err != nil || len(services.Items) == 0 {
 		log.Logger().Errorf("Couldn't find the ui service in the cluster")
