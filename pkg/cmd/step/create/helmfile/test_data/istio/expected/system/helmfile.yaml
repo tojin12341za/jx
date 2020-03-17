@@ -27,6 +27,16 @@ releases:
   values:
   - ../jx-requirements.values.yaml.gotmpl
 - chart: flagger/flagger
+  hooks:
+  - args:
+    - apply
+    - -f
+    - https://raw.githubusercontent.com/weaveworks/flagger/master/artifacts/flagger/crd.yaml
+    command: kubectl
+    events:
+    - prepare
+    name: crd-apply
+    showlogs: true
   name: flagger
   namespace: istio-system
   values:

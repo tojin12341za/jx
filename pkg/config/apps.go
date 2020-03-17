@@ -53,6 +53,8 @@ type App struct {
 	Alias string `json:"alias,omitempty"`
 	// Values any explicit value files to be used
 	Values []string `json:"values,omitempty"`
+	// Hooks is a list of extension points paired with operations, that are executed in specific points of the lifecycle of releases defined in helmfile
+	Hooks []helmfile.Hook `json:"hooks,omitempty"`
 }
 
 // Phase of the pipeline to install application

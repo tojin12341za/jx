@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/jenkins-x/jx/pkg/helmfile"
 	"github.com/jenkins-x/jx/pkg/util"
 	"github.com/pkg/errors"
 	"sigs.k8s.io/yaml"
@@ -24,6 +25,8 @@ type AppDefaultsConfig struct {
 	// Phase the boot phase this app should be installed in. Leave blank if you are not sure.
 	// things like ingress controllers are in 'system' and most other things default to the 'apps' phase
 	Phase string `json:"phase,omitempty"`
+	// Hooks is a list of extension points paired with operations, that are executed in specific points of the lifecycle of releases defined in helmfile
+	Hooks []helmfile.Hook `json:"hooks,omitempty"`
 }
 
 // LoadAppDefaultsConfig loads the boot apps default configuration when using helmfile / helm 3 in the version stream

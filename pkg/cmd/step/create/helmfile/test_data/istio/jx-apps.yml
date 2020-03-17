@@ -9,6 +9,12 @@ apps:
 - name: flagger/flagger
   phase: system
   namespace: istio-system
+  hooks:
+  - name: "crd-apply"
+    events: ["prepare"]
+    showlogs: true
+    command: "kubectl"
+    args: ["apply", "-f", "https://raw.githubusercontent.com/weaveworks/flagger/master/artifacts/flagger/crd.yaml"]
 - name: flagger/grafana
   phase: system
   namespace: istio-system
