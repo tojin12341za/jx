@@ -1,3 +1,4 @@
+
 bases:
 - ../environments.yaml
 helmDefaults:
@@ -59,8 +60,8 @@ releases:
 repositories:
 - name: flagger
   url: https://flagger.app
-- name: jenkins-x
-  url: https://storage.googleapis.com/chartmuseum.jenkins-x.io
+- name: jx-labs
+  url: https://storage.googleapis.com/jenkinsxio-labs/charts
 - name: stable
   url: https://kubernetes-charts.storage.googleapis.com
 - name: zloeber
