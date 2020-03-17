@@ -19,26 +19,38 @@ releases:
   values:
   - test_data/jenkins-x-versions/apps/stable/nginx-ingress/values.yaml.gotmpl
   - ../jx-requirements.values.yaml.gotmpl
-- chart: stable/velero
-  name: velero
-  namespace: velero
+- chart: jx-labs/istio
+  name: istio
+  namespace: istio-system
   needs:
-  - jx/namespace-velero
+  - jx/namespace-istio-system
   values:
-  - test_data/jenkins-x-versions/apps/stable/velero/values.yaml.gotmpl
   - ../jx-requirements.values.yaml.gotmpl
-  version: 2.7.4
+- chart: flagger/flagger
+  name: flagger
+  namespace: istio-system
+  values:
+  - ../jx-requirements.values.yaml.gotmpl
+- chart: flagger/grafana
+  name: grafana
+  namespace: istio-system
+  values:
+  - ../jx-requirements.values.yaml.gotmpl
 - chart: zloeber/namespace
   name: namespace-nginx
   namespace: jx
   values:
   - generated/nginx/values.yaml
 - chart: zloeber/namespace
-  name: namespace-velero
+  name: namespace-istio-system
   namespace: jx
   values:
-  - generated/velero/values.yaml
+  - generated/istio-system/values.yaml
 repositories:
+- name: flagger
+  url: https://flagger.app
+- name: jenkins-x
+  url: https://storage.googleapis.com/chartmuseum.jenkins-x.io
 - name: stable
   url: https://kubernetes-charts.storage.googleapis.com
 - name: zloeber

@@ -39,7 +39,7 @@ func TestGeneratedHelmfiles(t *testing.T) {
 	rootTempDir, err := ioutil.TempDir("", "test-applications-config")
 	assert.NoError(t, err, "should create a temporary config dir")
 
-	for _, name := range []string{"dedupe_repositories", "empty-system", "empty", "alias", "namespace-chart", "override-values"} {
+	for _, name := range []string{"istio", "dedupe_repositories", "empty-system", "empty", "alias", "namespace-chart", "override-values"} {
 		tempDir := filepath.Join(rootTempDir, name)
 		sourceDir := filepath.Join("test_data", name)
 		o := &CreateHelmfileOptions{

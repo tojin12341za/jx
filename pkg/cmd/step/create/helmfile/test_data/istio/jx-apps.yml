@@ -1,0 +1,18 @@
+apps:
+- name: stable/nginx-ingress
+  phase: system
+  namespace: nginx
+- name: stable/kuberhealthy
+- name: jx-labs/istio
+  phase: system
+  namespace: istio-system
+- name: flagger/flagger
+  phase: system
+  namespace: istio-system
+- name: flagger/grafana
+  phase: system
+  namespace: istio-system
+- name: jenkins-x/jxboot-helmfile-resources
+- name: jenkins-x/lighthouse
+- name: jenkins-x/tekton
+- name: jenkins-x/bucketrepo

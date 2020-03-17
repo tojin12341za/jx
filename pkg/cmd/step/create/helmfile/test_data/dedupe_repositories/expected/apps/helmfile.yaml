@@ -26,6 +26,8 @@ releases:
 - chart: jetstack/cert-manager
   name: cert-manager
   namespace: cert-manager
+  needs:
+  - jx/namespace-cert-manager
   values:
   - ../jx-requirements.values.yaml.gotmpl
   version: v0.11.0
@@ -34,6 +36,11 @@ releases:
   namespace: jx
   values:
   - ../jx-requirements.values.yaml.gotmpl
+- chart: zloeber/namespace
+  name: namespace-cert-manager
+  namespace: jx
+  values:
+  - generated/cert-manager/values.yaml
 repositories:
 - name: bitnami
   url: https://charts.bitnami.com/bitnami
@@ -41,3 +48,5 @@ repositories:
   url: https://storage.googleapis.com/chartmuseum.jenkins-x.io
 - name: stable
   url: https://kubernetes-charts.storage.googleapis.com
+- name: zloeber
+  url: git+https://github.com/rawlingsj/helm-namespace@chart

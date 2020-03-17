@@ -1,0 +1,38 @@
+bases:
+- ../environments.yaml
+helmDefaults:
+  atomic: true
+  devel: false
+  force: false
+  recreatePods: false
+  tillerless: false
+  timeout: 520
+  tls: false
+  verify: false
+  wait: true
+releases:
+- chart: stable/kuberhealthy
+  name: kuberhealthy
+  values:
+  - ../jx-requirements.values.yaml.gotmpl
+- chart: jenkins-x/jxboot-helmfile-resources
+  name: jxboot-helmfile-resources
+  values:
+  - ../jx-requirements.values.yaml.gotmpl
+- chart: jenkins-x/lighthouse
+  name: lighthouse
+  values:
+  - ../jx-requirements.values.yaml.gotmpl
+- chart: jenkins-x/tekton
+  name: tekton
+  values:
+  - ../jx-requirements.values.yaml.gotmpl
+- chart: jenkins-x/bucketrepo
+  name: bucketrepo
+  values:
+  - ../jx-requirements.values.yaml.gotmpl
+repositories:
+- name: jenkins-x
+  url: https://storage.googleapis.com/chartmuseum.jenkins-x.io
+- name: stable
+  url: https://kubernetes-charts.storage.googleapis.com
