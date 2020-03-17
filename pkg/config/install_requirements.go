@@ -252,6 +252,10 @@ type IngressConfig struct {
 	// ServiceType the Ingress controller Service Type.
 	// If not specified we assume 'LoadBalancer'. If using on premise, kind or minikube you may need to use NodePort if you don't have a real load balancer
 	ServiceType string `json:"serviceType,omitempty"`
+	// Namespace the kubernetes namespace used to discover the LoadBalancer Service IP addresses if not using a custom domain
+	Namespace string `json:"namespace,omitempty"`
+	// Service the kubernetes Service used to discover LoadBalancer IP addresses if not using a custom domain
+	Service string `json:"service,omitempty"`
 }
 
 // TLSConfig contains TLS specific requirements

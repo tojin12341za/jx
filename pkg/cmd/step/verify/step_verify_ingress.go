@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/mail"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/jenkins-x/jx/pkg/cmd/opts/step"
@@ -83,8 +84,8 @@ func NewCmdStepVerifyIngress(commonOpts *opts.CommonOptions) *cobra.Command {
 	cmd.Flags().StringVarP(&options.Dir, "dir", "d", ".", "the directory to look for the values.yaml file")
 	cmd.Flags().StringVarP(&options.Namespace, "namespace", "n", "", "the namespace to install into. Defaults to $DEPLOY_NAMESPACE if not")
 
-	cmd.Flags().StringVarP(&options.IngressNamespace, "ingress-namespace", "", opts.DefaultIngressNamesapce, "The namespace for the Ingress controller")
-	cmd.Flags().StringVarP(&options.IngressService, "ingress-service", "", opts.DefaultIngressServiceName, "The name of the Ingress controller Service")
+	cmd.Flags().StringVarP(&options.IngressNamespace, "ingress-namespace", "", "", "The namespace for the Ingress controller")
+	cmd.Flags().StringVarP(&options.IngressService, "ingress-service", "", "", "The name of the Ingress controller Service")
 	cmd.Flags().StringVarP(&options.ExternalIP, "external-ip", "", "", "The external IP used to access ingress endpoints from outside the Kubernetes cluster. For bare metal on premise clusters this is often the IP of the Kubernetes master. For cloud installations this is often the external IP of the ingress LoadBalancer.")
 	cmd.Flags().StringVarP(&options.Provider, "provider", "", "", "Cloud service providing the Kubernetes cluster.  Supported providers: "+cloud.KubernetesProviderOptions())
 	cmd.Flags().StringVarP(&options.LazyCreateFlag, "lazy-create", "", "", fmt.Sprintf("Specify true/false as to whether to lazily create missing resources. If not specified it is enabled if Terraform is not specified in the %s file", config.RequirementsConfigFileName))
@@ -126,7 +127,12 @@ func (o *StepVerifyIngressOptions) Run() error {
 	}
 
 	if requirements.Ingress.Domain == "" {
-		err = o.discoverIngressDomain(requirements, requirementsFileName)
+		appsConfig, _, err := config.LoadAppConfig(o.Dir)
+		if err != nil {
+			return errors.Wrapf(err, "failed to load apps")
+		}
+
+		err = o.discoverIngressDomain(requirements, requirementsFileName, appsConfig)
 		if err != nil {
 			return errors.Wrapf(err, "failed to discover the Ingress domain")
 		}
@@ -198,7 +204,7 @@ func (o *StepVerifyIngressOptions) Run() error {
 	return requirements.SaveConfig(requirementsFileName)
 }
 
-func (o *StepVerifyIngressOptions) discoverIngressDomain(requirements *config.RequirementsConfig, requirementsFileName string) error {
+func (o *StepVerifyIngressOptions) discoverIngressDomain(requirements *config.RequirementsConfig, requirementsFileName string, appsConfig *config.AppConfig) error {
 	client, err := o.KubeClient()
 	var domain string
 	if err != nil {
@@ -214,6 +220,20 @@ func (o *StepVerifyIngressOptions) discoverIngressDomain(requirements *config.Re
 		if o.Provider == "" {
 			log.Logger().Warnf("No provider configured\n")
 		}
+	}
+
+	if o.IngressNamespace == "" {
+		o.IngressNamespace = requirements.Ingress.Namespace
+	}
+	if o.IngressService == "" {
+		o.IngressService = requirements.Ingress.Service
+	}
+	defaultIngressValues := o.findDefaultIngressValues(appsConfig)
+	if o.IngressService == "" {
+		o.IngressService = defaultIngressValues.Service
+	}
+	if o.IngressNamespace == "" {
+		o.IngressNamespace = defaultIngressValues.Namespace
 	}
 	domain, err = o.GetDomain(client, "",
 		o.Provider,
@@ -290,4 +310,26 @@ func (o *StepVerifyIngressOptions) waitForIngressControllerHost(kubeClient kuber
 		return false, err
 	}
 	return true, nil
+}
+
+// DiscoverIngressValues the values used to discover ingress
+type DiscoverIngressValues struct {
+	Namespace string
+	Service   string
+}
+
+// findDefaultIngressValues detects the default location of the LoadBalancer ingress service for common apps
+func (o *StepVerifyIngressOptions) findDefaultIngressValues(appsConfig *config.AppConfig) DiscoverIngressValues {
+	for _, app := range appsConfig.Apps {
+		if strings.HasSuffix(app.Name, "/istio") {
+			return DiscoverIngressValues{
+				Namespace: "istio-system",
+				Service:   "istio-ingressgateway",
+			}
+		}
+	}
+	return DiscoverIngressValues{
+		Namespace: "nginx",
+		Service:   "nginx-ingress-controller",
+	}
 }
