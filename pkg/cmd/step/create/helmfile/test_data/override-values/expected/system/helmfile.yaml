@@ -11,6 +11,11 @@ helmDefaults:
   verify: false
   wait: true
 releases:
+- chart: zloeber/namespace
+  name: namespace-nginx
+  namespace: jx
+  values:
+  - generated/nginx/values.yaml
 - chart: stable/nginx-ingress
   name: nginx-ingress
   namespace: nginx
@@ -20,11 +25,6 @@ releases:
   - test_data/jenkins-x-versions/apps/stable/nginx-ingress/values.yaml.gotmpl
   - ../jx-requirements.values.yaml.gotmpl
   - ../apps/nginx-ingress/values.yaml
-- chart: zloeber/namespace
-  name: namespace-nginx
-  namespace: jx
-  values:
-  - generated/nginx/values.yaml
 repositories:
 - name: stable
   url: https://kubernetes-charts.storage.googleapis.com

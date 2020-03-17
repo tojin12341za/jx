@@ -11,6 +11,16 @@ helmDefaults:
   verify: false
   wait: true
 releases:
+- chart: zloeber/namespace
+  name: namespace-nginx
+  namespace: jx
+  values:
+  - generated/nginx/values.yaml
+- chart: zloeber/namespace
+  name: namespace-velero
+  namespace: jx
+  values:
+  - generated/velero/values.yaml
 - chart: stable/nginx-ingress
   name: nginx-ingress
   namespace: nginx
@@ -28,16 +38,6 @@ releases:
   - test_data/jenkins-x-versions/apps/stable/velero/values.yaml.gotmpl
   - ../jx-requirements.values.yaml.gotmpl
   version: 2.7.4
-- chart: zloeber/namespace
-  name: namespace-nginx
-  namespace: jx
-  values:
-  - generated/nginx/values.yaml
-- chart: zloeber/namespace
-  name: namespace-velero
-  namespace: jx
-  values:
-  - generated/velero/values.yaml
 repositories:
 - name: stable
   url: https://kubernetes-charts.storage.googleapis.com

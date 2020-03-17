@@ -1,4 +1,3 @@
-
 bases:
 - ../environments.yaml
 helmDefaults:
@@ -12,6 +11,11 @@ helmDefaults:
   verify: false
   wait: true
 releases:
+- chart: zloeber/namespace
+  name: namespace-cert-manager
+  namespace: jx
+  values:
+  - generated/cert-manager/values.yaml
 - chart: stable/external-dns
   name: external-dns
   namespace: jx
@@ -37,11 +41,6 @@ releases:
   namespace: jx
   values:
   - ../jx-requirements.values.yaml.gotmpl
-- chart: zloeber/namespace
-  name: namespace-cert-manager
-  namespace: jx
-  values:
-  - generated/cert-manager/values.yaml
 repositories:
 - name: bitnami
   url: https://charts.bitnami.com/bitnami

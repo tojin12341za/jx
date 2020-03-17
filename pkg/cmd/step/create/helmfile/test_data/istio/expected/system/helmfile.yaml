@@ -12,6 +12,16 @@ helmDefaults:
   verify: false
   wait: true
 releases:
+- chart: zloeber/namespace
+  name: namespace-nginx
+  namespace: jx
+  values:
+  - generated/nginx/values.yaml
+- chart: zloeber/namespace
+  name: namespace-istio-system
+  namespace: jx
+  values:
+  - generated/istio-system/values.yaml
 - chart: stable/nginx-ingress
   name: nginx-ingress
   namespace: nginx
@@ -40,23 +50,17 @@ releases:
     showlogs: true
   name: flagger
   namespace: istio-system
+  needs:
+  - jx/namespace-istio-system
   values:
   - ../jx-requirements.values.yaml.gotmpl
 - chart: flagger/grafana
   name: grafana
   namespace: istio-system
+  needs:
+  - jx/namespace-istio-system
   values:
   - ../jx-requirements.values.yaml.gotmpl
-- chart: zloeber/namespace
-  name: namespace-nginx
-  namespace: jx
-  values:
-  - generated/nginx/values.yaml
-- chart: zloeber/namespace
-  name: namespace-istio-system
-  namespace: jx
-  values:
-  - generated/istio-system/values.yaml
 repositories:
 - name: flagger
   url: https://flagger.app
