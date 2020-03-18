@@ -269,6 +269,7 @@ func TestModifyEnvironmentRequirements(t *testing.T) {
 	devReq.Cluster.DevEnvApprovers = []string{"jstrachan", "rawlingsj"}
 	devReq.Cluster.Provider = "kind"
 	devReq.Ingress.IgnoreLoadBalancer = true
+	devReq.Ingress.Kind = config.IngressTypeIstio
 
 	stagingReq := NewRemoteRequirementsConfig()
 	stagingEnv := kube.NewPermanentEnvironment("staging")

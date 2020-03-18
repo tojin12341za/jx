@@ -492,6 +492,9 @@ func ModifyEnvironmentRequirements(out io.Writer, devRequirements *config.Requir
 			remoteRequirements.Cluster.GitServer = gits.GitHubURL
 		}
 	}
+	if string(remoteRequirements.Ingress.Kind) == "" {
+		remoteRequirements.Ingress.Kind = devRequirements.Ingress.Kind
+	}
 	if env.Spec.Namespace == "" {
 		env.Spec.Namespace = "jx-" + env.Name
 	}
