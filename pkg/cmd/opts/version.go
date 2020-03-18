@@ -36,11 +36,14 @@ func (o *CommonOptions) EnvironmentContext(dir string, preferRequirementsFile bo
 	if preferRequirementsFile {
 		fileName := ""
 		tc.Requirements, fileName, err = config.LoadRequirementsConfig(dir)
-		if err != nil {
-			return tc, err
-		}
 		if fileName != "" {
 			exists, _ = util.FileExists(fileName)
+		}
+		if !exists {
+			err = nil
+		}
+		if err != nil {
+			return tc, err
 		}
 	}
 	if !preferRequirementsFile || !exists {
