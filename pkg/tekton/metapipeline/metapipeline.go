@@ -254,6 +254,7 @@ func stepEffectivePipeline(params CRDCreationParameters) syntax.Step {
 		Comment:   "Pipeline step creating the effective pipeline configuration",
 		Command:   "jx step syntax effective",
 		Arguments: args,
+		Image:     "gcr.io/jenkinsxio-labs/jxl",
 	}
 	return step
 }
@@ -288,6 +289,7 @@ func stepCreateTektonCRDs(params CRDCreationParameters) syntax.Step {
 		Comment:   "Pipeline step to create the Tekton CRDs for the actual pipeline run",
 		Command:   "jx step create task",
 		Arguments: args,
+		Image:     "gcr.io/jenkinsxio-labs/jxl",
 	}
 	return step
 }
