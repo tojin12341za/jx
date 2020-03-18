@@ -342,6 +342,7 @@ func (o *StepSyntaxEffectiveOptions) CreateEffectivePipeline(packsDir string, pr
 			{
 				Command: "jx step git credentials",
 				Name:    "jx-git-credentials",
+				Image:   "gcr.io/jenkinsxio-labs/jxl",
 			},
 		}
 		releaseLifecycles.Setup.Steps = append(steps, releaseLifecycles.Setup.Steps...)
