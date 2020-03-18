@@ -139,6 +139,21 @@ const (
 // SecretStorageTypeValues the string values for the secret storage
 var SecretStorageTypeValues = []string{"gsm", "local", "vault"}
 
+// IngressType is the type of a ingress strategy
+type IngressType string
+
+const (
+	// IngressTypeNone if we have yet to define a ingress type
+	IngressTypeNone IngressType = ""
+	// IngressTypeIngress uses the kubernetes Ingress resources
+	IngressTypeIngress IngressType = "ingress"
+	// IngressTypeIstio uses istio VirtualService resources for ingress
+	IngressTypeIstio IngressType = "istio"
+)
+
+// IngressTypeValues the string values for the ingress types
+var IngressTypeValues = []string{"ingress", "istio"}
+
 // WebhookType is the type of a webhook strategy
 type WebhookType string
 
@@ -256,6 +271,8 @@ type IngressConfig struct {
 	Namespace string `json:"namespace,omitempty"`
 	// Service the kubernetes Service used to discover LoadBalancer IP addresses if not using a custom domain
 	Service string `json:"service,omitempty"`
+	// Kind the kind of kubernetes ingress stragegy - e.g. using Ingress or VirtualService resources
+	Kind IngressType `json:"kind,omitempty"`
 }
 
 // TLSConfig contains TLS specific requirements

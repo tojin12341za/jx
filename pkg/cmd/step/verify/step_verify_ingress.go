@@ -228,7 +228,7 @@ func (o *StepVerifyIngressOptions) discoverIngressDomain(requirements *config.Re
 	if o.IngressService == "" {
 		o.IngressService = requirements.Ingress.Service
 	}
-	defaultIngressValues := o.findDefaultIngressValues(appsConfig)
+	defaultIngressValues := o.findDefaultIngressValues(requirements, appsConfig)
 	if o.IngressService == "" {
 		o.IngressService = defaultIngressValues.Service
 	}
@@ -318,18 +318,30 @@ type DiscoverIngressValues struct {
 	Service   string
 }
 
-// findDefaultIngressValues detects the default location of the LoadBalancer ingress service for common apps
-func (o *StepVerifyIngressOptions) findDefaultIngressValues(appsConfig *config.AppConfig) DiscoverIngressValues {
-	for _, app := range appsConfig.Apps {
-		if strings.HasSuffix(app.Name, "/istio") {
-			return DiscoverIngressValues{
-				Namespace: "istio-system",
-				Service:   "istio-ingressgateway",
-			}
-		}
+var (
+	istioIngressValues = DiscoverIngressValues{
+		Namespace: "istio-system",
+		Service:   "istio-ingressgateway",
 	}
-	return DiscoverIngressValues{
+
+	nginxIngressValues = DiscoverIngressValues{
 		Namespace: "nginx",
 		Service:   "nginx-ingress-controller",
 	}
+)
+
+// findDefaultIngressValues detects the default location of the LoadBalancer ingress service for common apps
+func (o *StepVerifyIngressOptions) findDefaultIngressValues(requirements *config.RequirementsConfig, appsConfig *config.AppConfig) DiscoverIngressValues {
+	if requirements.Ingress.Kind == config.IngressTypeIstio {
+		return istioIngressValues
+	}
+	if requirements.Ingress.Kind == config.IngressTypeIngress {
+		return nginxIngressValues
+	}
+	for _, app := range appsConfig.Apps {
+		if strings.HasSuffix(app.Name, "/istio") {
+			return istioIngressValues
+		}
+	}
+	return nginxIngressValues
 }
