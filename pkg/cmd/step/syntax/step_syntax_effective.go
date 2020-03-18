@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/jenkins-x/jx/pkg/cmd/opts/step"
+	"github.com/jenkins-x/jx/pkg/tekton/metapipeline"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/jenkins-x/jx/pkg/versionstream"
@@ -342,7 +343,7 @@ func (o *StepSyntaxEffectiveOptions) CreateEffectivePipeline(packsDir string, pr
 			{
 				Command: "jx step git credentials",
 				Name:    "jx-git-credentials",
-				Image:   "gcr.io/jenkinsxio-labs/jxl",
+				Image:   metapipeline.DefaultJXImage,
 			},
 		}
 		releaseLifecycles.Setup.Steps = append(steps, releaseLifecycles.Setup.Steps...)

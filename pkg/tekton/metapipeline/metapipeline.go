@@ -2,6 +2,7 @@ package metapipeline
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/jenkins-x/jx/pkg/kube"
@@ -39,6 +40,19 @@ const (
 	mavenSettingsSecretName = "jenkins-maven-settings" // #nosec
 	mavenSettingsMount      = "/root/.m2/"
 )
+
+var (
+	// DefaultJXImage the default image for jx steps
+	DefaultJXImage = "gcr.io/jenkinsxio-labs/jxl"
+)
+
+func init() {
+	i := os.Getenv("JX_DEFAULT_IMAGE")
+	if i != "" {
+		log.Logger().Infof("using default jx image: %s", i)
+		DefaultJXImage = i
+	}
+}
 
 // CRDCreationParameters are the parameters needed to create the Tekton CRDs
 type CRDCreationParameters struct {
@@ -254,7 +268,7 @@ func stepEffectivePipeline(params CRDCreationParameters) syntax.Step {
 		Comment:   "Pipeline step creating the effective pipeline configuration",
 		Command:   "jx step syntax effective",
 		Arguments: args,
-		Image:     "gcr.io/jenkinsxio-labs/jxl",
+		Image:     DefaultJXImage,
 	}
 	return step
 }
@@ -289,7 +303,7 @@ func stepCreateTektonCRDs(params CRDCreationParameters) syntax.Step {
 		Comment:   "Pipeline step to create the Tekton CRDs for the actual pipeline run",
 		Command:   "jx step create task",
 		Arguments: args,
-		Image:     "gcr.io/jenkinsxio-labs/jxl",
+		Image:     DefaultJXImage,
 	}
 	return step
 }
