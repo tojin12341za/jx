@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -19,6 +20,7 @@ import (
 	"github.com/jenkins-x/jx/pkg/cmd/step/pr"
 	"github.com/jenkins-x/jx/pkg/kube/naming"
 
+	"github.com/ghodss/yaml"
 	"github.com/pkg/errors"
 
 	"github.com/cenkalti/backoff"
@@ -74,6 +76,11 @@ const (
 	optionPostPreviewJobPollTime = "post-preview-poll-time"
 	optionPreviewHealthTimeout   = "preview-health-timeout"
 )
+
+// PreviewRequirementsYaml the yaml file to inject into the helm chart for the preview
+type PreviewRequirementsYaml struct {
+	Preview config.RequirementsValues `json:"preview,omitempty"`
+}
 
 // PreviewOptions the options for viewing running PRs
 type PreviewOptions struct {
@@ -199,22 +206,6 @@ func (o *PreviewOptions) Run() error {
 		return err
 	}
 	kserveClient, _, err := o.KnativeServeClient()
-	if err != nil {
-		return err
-	}
-	apisClient, err := o.ApiExtensionsClient()
-	if err != nil {
-		return err
-	}
-	err = kube.RegisterEnvironmentCRD(apisClient)
-	if err != nil {
-		return err
-	}
-	err = kube.RegisterGitServiceCRD(apisClient)
-	if err != nil {
-		return err
-	}
-	err = kube.RegisterUserCRD(apisClient)
 	if err != nil {
 		return err
 	}
@@ -485,6 +476,15 @@ func (o *PreviewOptions) Run() error {
 		return err
 	}
 
+	teamSettings, err := o.TeamSettings()
+	if err != nil {
+		return errors.Wrap(err, "could not load team")
+	}
+	requirements, err := config.GetRequirementsConfigFromTeamSettings(teamSettings)
+	if err != nil {
+		return errors.Wrap(err, "could not get requirements from environment")
+	}
+
 	config, err := values.String()
 	if err != nil {
 		return err
@@ -519,6 +519,28 @@ func (o *PreviewOptions) Run() error {
 	_, err = ioutil.ReadFile(defaultValuesFileName)
 	if err == nil {
 		helmOptions.ValueFiles = append(helmOptions.ValueFiles, defaultValuesFileName)
+	}
+
+	if requirements != nil && requirements.Helmfile {
+		// lets generate the requirements yaml file indented by preview
+		y := &PreviewRequirementsYaml{}
+		y.Preview.RequirementsConfig = requirements
+
+		// modify to preview namespace
+		y.Preview.RequirementsConfig.Cluster.Namespace = o.Namespace
+		y.Preview.RequirementsConfig.Ingress.NamespaceSubDomain = fmt.Sprintf("-%s.", o.Namespace)
+		data, err := yaml.Marshal(y)
+		if err != nil {
+			return err
+		}
+
+		requirementsYamlFile := path.Join(dir, "jxRequirements.values.yaml")
+		err = ioutil.WriteFile(requirementsYamlFile, data, util.DefaultWritePermissions)
+		if err != nil {
+			return errors.Wrapf(err, "failed to save file %s", requirementsYamlFile)
+		}
+		log.Logger().Infof("adding helm values file %s for namespace %s", util.ColorInfo(requirementsYamlFile), util.ColorInfo(o.Namespace))
+		helmOptions.ValueFiles = append(helmOptions.ValueFiles, requirementsYamlFile)
 	}
 
 	err = o.InstallChartWithOptions(helmOptions)
