@@ -481,7 +481,7 @@ func (h *HelmCLI) UpgradeChart(chart string, releaseName string, ns string, vers
 		args = append(args, "--force")
 	}
 	if timeout != -1 {
-		if h.Binary == "helm3" {
+		if h.Binary == "helm3" || h.BinVersion == V3 {
 			args = append(args, "--timeout", fmt.Sprintf("%ss", strconv.Itoa(timeout)))
 		} else {
 			args = append(args, "--timeout", strconv.Itoa(timeout))
