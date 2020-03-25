@@ -439,7 +439,7 @@ func ReplacePomXmlVersion(data []byte, newVersion string) (string, error) {
 		return "", fmt.Errorf("could not find <version> inside the pom.xml")
 	}
 	child.Text = newVersion
-	return doc.XMLPrettyEx("  "), nil
+	return doc.XMLPretty(), nil
 }
 
 func (o *StepNextVersionOptions) setPackageVersion(b []byte) error {

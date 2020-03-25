@@ -23,6 +23,7 @@ require (
 	github.com/andygrunwald/go-gerrit v0.0.0-20181026193842-43cfd7a94eb4
 	github.com/andygrunwald/go-jira v1.5.0
 	github.com/anmitsu/go-shlex v0.0.0-20161002113705-648efa622239 // indirect
+	github.com/antchfx/xpath v1.1.4 // indirect
 	github.com/antham/chyle v1.4.0
 	github.com/aws/aws-sdk-go v1.24.0
 	github.com/awslabs/goformation v0.0.0-20190320125420-ac0a17860cf1
@@ -114,7 +115,7 @@ require (
 	github.com/src-d/gcfg v1.3.0 // indirect
 	github.com/stoewer/go-strcase v1.0.1
 	github.com/stretchr/testify v1.4.0
-	github.com/subchen/go-xmldom v1.1.2
+	github.com/subchen/go-xmldom v1.1.2-0.20171223153236-c38add8757d0
 	github.com/tektoncd/pipeline v0.8.0
 	github.com/trivago/tgo v1.0.1 // indirect
 	github.com/ulikunitz/xz v0.5.6 // indirect
