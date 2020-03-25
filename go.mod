@@ -114,6 +114,7 @@ require (
 	github.com/src-d/gcfg v1.3.0 // indirect
 	github.com/stoewer/go-strcase v1.0.1
 	github.com/stretchr/testify v1.4.0
+	github.com/subchen/go-xmldom v1.1.2
 	github.com/tektoncd/pipeline v0.8.0
 	github.com/trivago/tgo v1.0.1 // indirect
 	github.com/ulikunitz/xz v0.5.6 // indirect
