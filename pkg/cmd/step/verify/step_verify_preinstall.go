@@ -288,6 +288,15 @@ func (o *StepVerifyPreInstallOptions) Run() error {
 			if err != nil {
 				return errors.Wrap(err, "error enabling IRSA in cluster")
 			}
+			if o.ProviderValuesDir == "" {
+				// lets default to the version stream
+				versionResolver, err := o.GetVersionResolver()
+				if err != nil {
+					return errors.Wrapf(err, "failed to create VersionResolver")
+				}
+				o.ProviderValuesDir = filepath.Join(versionResolver.VersionsDir, "kubeProviders")
+				log.Logger().Infof("using the directory %s for EKS templates", util.ColorInfo(o.ProviderValuesDir))
+			}
 			err = amazon.CreateIRSAManagedServiceAccounts(requirements, o.ProviderValuesDir)
 			if err != nil {
 				return errors.Wrap(err, "error creating the IRSA managed Service Accounts")
