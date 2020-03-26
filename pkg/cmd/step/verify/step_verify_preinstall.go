@@ -574,36 +574,6 @@ func (o *StepVerifyPreInstallOptions) gatherRequirements(requirements *config.Re
 		}
 	}
 
-	switch requirements.Cluster.Provider {
-	case cloud.KIND, cloud.MINIKUBE, cloud.MINISHIFT:
-		if requirements.Ingress.ServiceType == "" {
-			requirements.Ingress.ServiceType = "NodePort"
-		}
-		requirements.Ingress.IgnoreLoadBalancer = true
-
-		ip, err := getIPAddress()
-		if err != nil {
-			return nil, err
-		}
-
-		if requirements.Cluster.Registry == "" {
-			if ip != "" {
-				requirements.Cluster.Registry = fmt.Sprintf("%s:5000", ip)
-				log.Logger().Infof("defaulting to container registry: %s", util.ColorInfo(requirements.Cluster.Registry))
-			} else {
-				log.Logger().Info("cannot detect the external IP address of this machine. Please update the requirements cluster.Registry value to the host/IP address and port of your container registry")
-			}
-		}
-		if requirements.Ingress.Domain == "" {
-			if ip != "" {
-				requirements.Ingress.Domain = fmt.Sprintf("%s.nip.io", ip)
-				log.Logger().Infof("defaulting to ingress domain: %s", util.ColorInfo(requirements.Ingress.Domain))
-			} else {
-				log.Logger().Info("cannot detect the external IP address of this machine. Please update the requirements ingress.domain value to access your ingress controller")
-			}
-		}
-	}
-
 	if requirements.Cluster.Provider == cloud.GKE {
 		var currentProject, currentZone, currentClusterName string
 		autoAcceptDefaults := false
@@ -766,6 +736,15 @@ func (o *StepVerifyPreInstallOptions) gatherRequirements(requirements *config.Re
 	}
 
 	return requirements, nil
+}
+
+// getAPIServerHost returns the kubernetes API server host
+func (o *StepVerifyPreInstallOptions) getAPIServerHost() (string, error) {
+	cfg, _, err := o.Kube().LoadConfig()
+	if err != nil {
+		return "", errors.Wrap(err, "failed to find Kubernetes API server")
+	}
+	return kube.CurrentServer(cfg), nil
 }
 
 func (o *StepVerifyPreInstallOptions) writeOwnersFile(requirements *config.RequirementsConfig) error {
@@ -1044,14 +1023,75 @@ func (o *StepVerifyPreInstallOptions) verifyConfigMapExists(kubeClient kubernete
 func (o *StepVerifyPreInstallOptions) verifyIngress(requirements *config.RequirementsConfig, requirementsFileName string) error {
 	log.Logger().Info("Verifying Ingress...")
 	domain := requirements.Ingress.Domain
+
+	modified := false
+	// if we are discovering the domain name from the ingress service this can change if a cluster/service is recreated
+	// so we need to recreate it each time to be sure the IP address is still correct
 	if requirements.Ingress.IsAutoDNSDomain() && !requirements.Ingress.IgnoreLoadBalancer {
 		log.Logger().Infof("Clearing the domain %s as when using auto-DNS domains we need to regenerate to ensure its always accurate in case the cluster or ingress service is recreated", util.ColorInfo(domain))
 		requirements.Ingress.Domain = ""
+		modified = true
+	}
+
+	switch requirements.Cluster.Provider {
+	case cloud.KIND, cloud.MINIKUBE, cloud.MINISHIFT:
+		if requirements.Ingress.ServiceType == "" {
+			requirements.Ingress.ServiceType = "NodePort"
+		}
+		requirements.Ingress.IgnoreLoadBalancer = true
+		modified = true
+
+		ip, err := getIPAddress()
+		if err != nil {
+			return err
+		}
+
+		if requirements.Cluster.Registry == "" {
+			if ip != "" {
+				requirements.Cluster.Registry = fmt.Sprintf("%s:5000", ip)
+				log.Logger().Infof("defaulting to container registry: %s", util.ColorInfo(requirements.Cluster.Registry))
+			} else {
+				log.Logger().Info("cannot detect the external IP address of this machine. Please update the requirements cluster.Registry value to the host/IP address and port of your container registry")
+			}
+		}
+		if requirements.Ingress.Domain == "" {
+			if ip != "" {
+				requirements.Ingress.Domain = fmt.Sprintf("%s.nip.io", ip)
+				log.Logger().Infof("defaulting to ingress domain: %s", util.ColorInfo(requirements.Ingress.Domain))
+			} else {
+				log.Logger().Info("cannot detect the external IP address of this machine. Please update the requirements ingress.domain value to access your ingress controller")
+			}
+		}
+
+	default:
+		if requirements.Ingress.ServiceType == "NodePort" {
+			ip, err := o.getAPIServerHost()
+			if err != nil {
+				return err
+			}
+			if ip == "" {
+				return fmt.Errorf("could not find the kubernetes API server host/IP address")
+			}
+
+			if requirements.Ingress.Domain == "" {
+				if ip != "" {
+					requirements.Ingress.Domain = fmt.Sprintf("%s.nip.io", ip)
+					modified = true
+					log.Logger().Infof("defaulting to ingress domain: %s", util.ColorInfo(requirements.Ingress.Domain))
+				} else {
+					log.Logger().Info("cannot detect the external IP address of this machine. Please update the requirements ingress.domain value to access your ingress controller")
+				}
+			}
+		}
+	}
+
+	if modified {
 		err := o.SaveConfig(requirements, requirementsFileName)
 		if err != nil {
 			return errors.Wrapf(err, "failed to save changes to file: %s", requirementsFileName)
 		}
 	}
+
 	log.Logger().Info("\n")
 	return nil
 }
