@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -740,6 +741,19 @@ func (o *StepVerifyPreInstallOptions) gatherRequirements(requirements *config.Re
 
 // getAPIServerHost returns the kubernetes API server host
 func (o *StepVerifyPreInstallOptions) getAPIServerHost() (string, error) {
+	urlText, err := o.getAPIServerHostURL()
+	if err != nil || urlText == "" {
+		return "", err
+	}
+	u, err := url.Parse(urlText)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to parse API server URL: %s", urlText)
+	}
+	return u.Host, nil
+}
+
+// getAPIServerHostURL returns the kubernetes API server host URL
+func (o *StepVerifyPreInstallOptions) getAPIServerHostURL() (string, error) {
 	cfg, _, err := o.Kube().LoadConfig()
 	if err != nil {
 		return "", errors.Wrap(err, "failed to find Kubernetes API server")
