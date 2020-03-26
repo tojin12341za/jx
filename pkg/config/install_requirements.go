@@ -204,7 +204,7 @@ const (
 // Overrideable at build time - see Makefile
 var (
 	// DefaultVersionsURL default version stream url
-	DefaultVersionsURL = "https://github.com/jenkins-x/jenkins-x-versions.git"
+	DefaultVersionsURL = "https://github.com/jenkins-x-labs/jenkins-x-versions.git"
 	// DefaultVersionsRef default version stream ref
 	DefaultVersionsRef = "master"
 	// DefaultBootRepository default git repo for boot

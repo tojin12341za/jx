@@ -290,9 +290,13 @@ func (o *StepVerifyPreInstallOptions) Run() error {
 			}
 			if o.ProviderValuesDir == "" {
 				// lets default to the version stream
-				versionResolver, err := o.GetVersionResolver()
+				ec, err := o.EnvironmentContext(o.Dir, true)
 				if err != nil {
-					return errors.Wrapf(err, "failed to create VersionResolver")
+					return errors.Wrapf(err, "failed to create EnvironmentContext")
+				}
+				versionResolver := ec.VersionResolver
+				if versionResolver == nil {
+					return fmt.Errorf("no VersionResolver")
 				}
 				o.ProviderValuesDir = filepath.Join(versionResolver.VersionsDir, "kubeProviders")
 				log.Logger().Infof("using the directory %s for EKS templates", util.ColorInfo(o.ProviderValuesDir))
