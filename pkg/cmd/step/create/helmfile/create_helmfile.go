@@ -59,8 +59,8 @@ type GeneratedValues struct {
 // CreateHelmfileOptions the options for the create helmfile command
 type CreateHelmfileOptions struct {
 	options.CreateOptions
+	Dir        string
 	outputDir  string
-	dir        string
 	valueFiles []string
 }
 
@@ -84,7 +84,7 @@ func NewCmdCreateHelmfile(commonOpts *opts.CommonOptions) *cobra.Command {
 			helper.CheckErr(err)
 		},
 	}
-	cmd.Flags().StringVarP(&o.dir, "dir", "", ".", "the directory to look for a 'jx-apps.yml' file")
+	cmd.Flags().StringVarP(&o.Dir, "Dir", "", ".", "the directory to look for a 'jx-apps.yml' file")
 	cmd.Flags().StringVarP(&o.outputDir, "outputDir", "", "", "The directory to write the helmfile.yaml file")
 	cmd.Flags().StringArrayVarP(&o.valueFiles, "values", "", nil, "specify values in a YAML file or a URL(can specify multiple)")
 
@@ -94,14 +94,14 @@ func NewCmdCreateHelmfile(commonOpts *opts.CommonOptions) *cobra.Command {
 // Run implements the command
 func (o *CreateHelmfileOptions) Run() error {
 	if o.outputDir == "" {
-		o.outputDir = o.dir
+		o.outputDir = o.Dir
 	}
-	apps, _, err := config.LoadAppConfig(o.dir)
+	apps, _, err := config.LoadAppConfig(o.Dir)
 	if err != nil {
 		return errors.Wrap(err, "failed to load applications")
 	}
 
-	ec, err := o.EnvironmentContext(o.dir, true)
+	ec, err := o.EnvironmentContext(o.Dir, true)
 	if err != nil {
 		return err
 	}
@@ -391,7 +391,7 @@ func (o *CreateHelmfileOptions) addExtraAppValues(app config.App, newValuesFiles
 	}
 	answer := newValuesFiles
 	for _, phase := range phases {
-		fileName := path.Join(o.dir, phase, app.Name, valuesFilename)
+		fileName := path.Join(o.Dir, phase, app.Name, valuesFilename)
 		exists, _ := util.FileExists(fileName)
 		if exists {
 			if phase != generatePhase {
@@ -404,7 +404,7 @@ func (o *CreateHelmfileOptions) addExtraAppValues(app config.App, newValuesFiles
 		parts := strings.Split(app.Name, "/")
 		if len(parts) == 2 {
 			localName := parts[1]
-			fileName := path.Join(o.dir, phase, localName, valuesFilename)
+			fileName := path.Join(o.Dir, phase, localName, valuesFilename)
 			exists, _ := util.FileExists(fileName)
 			if exists {
 				if phase != generatePhase {
@@ -529,7 +529,7 @@ func (o *CreateHelmfileOptions) ensureJxRequirementsYamlExists(requirements *con
 	if exists {
 		return nil
 	}
-	err = config.SaveRequirementsValuesFile(requirements, o.dir)
+	err = config.SaveRequirementsValuesFile(requirements, o.Dir)
 	if err != nil {
 		return errors.Wrap(err, "failed to save requirements yaml file")
 	}
