@@ -300,6 +300,9 @@ const (
 	// AnnotationReleaseName is the name of the annotation that stores the release name in the preview environment
 	AnnotationReleaseName = "jenkins.io/chart-release"
 
+	// AnnotationHost used to indicate the host if using NodePort Ingress resources on premise without a LoadBalancer
+	AnnotationHost = "jenkins.io/host"
+
 	// SecretDataUsername the username in a Secret/Credentials
 	SecretDataUsername = "username"
 

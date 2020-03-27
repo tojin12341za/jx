@@ -5,10 +5,13 @@ package services_test
 import (
 	"testing"
 
+	"github.com/jenkins-x/jx/pkg/kube"
 	"github.com/jenkins-x/jx/pkg/kube/services"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 func TestExtractServiceSchemePortDefault(t *testing.T) {
@@ -35,6 +38,7 @@ func TestExtractServiceSchemePortDefault(t *testing.T) {
 	assert.Equal(t, "http", schema)
 	assert.Equal(t, "80", port)
 }
+
 func TestExtractServiceSchemePortHttps(t *testing.T) {
 	t.Parallel()
 	s := &v1.Service{
@@ -59,6 +63,7 @@ func TestExtractServiceSchemePortHttps(t *testing.T) {
 	assert.Equal(t, "https", schema)
 	assert.Equal(t, "443", port)
 }
+
 func TestExtractServiceSchemePortHttpsFirst(t *testing.T) {
 	t.Parallel()
 	s := &v1.Service{
@@ -287,4 +292,124 @@ func TestExtractServiceSchemePortInconclusive(t *testing.T) {
 	schema, port, _ := services.ExtractServiceSchemePort(s)
 	assert.Equal(t, "", schema)
 	assert.Equal(t, "", port)
+}
+
+func TestFindURLFromIngress(t *testing.T) {
+	t.Parallel()
+
+	type testData struct {
+		Name        string
+		ExpectedURL string
+		Ingress     *v1beta1.Ingress
+	}
+
+	testCases := []testData{
+		{
+			Name:        "http-LoadBalancer",
+			ExpectedURL: "http://hook-jx.1.2.3.4.nip.io",
+			Ingress: &v1beta1.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "hook",
+				},
+				Spec: v1beta1.IngressSpec{
+					Rules: []v1beta1.IngressRule{
+						{
+							Host: "hook-jx.1.2.3.4.nip.io",
+							IngressRuleValue: v1beta1.IngressRuleValue{
+								HTTP: &v1beta1.HTTPIngressRuleValue{
+									Paths: []v1beta1.HTTPIngressPath{
+										{
+											Path: "",
+											Backend: v1beta1.IngressBackend{
+												ServiceName: "hook",
+												ServicePort: intstr.IntOrString{
+													IntVal: 80,
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Name:        "https-LoadBalancer",
+			ExpectedURL: "https://hook-jx.1.2.3.4.nip.io",
+			Ingress: &v1beta1.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "hook",
+				},
+				Spec: v1beta1.IngressSpec{
+					Rules: []v1beta1.IngressRule{
+						{
+							Host: "hook-jx.1.2.3.4.nip.io",
+							IngressRuleValue: v1beta1.IngressRuleValue{
+								HTTP: &v1beta1.HTTPIngressRuleValue{
+									Paths: []v1beta1.HTTPIngressPath{
+										{
+											Path: "",
+											Backend: v1beta1.IngressBackend{
+												ServiceName: "hook",
+												ServicePort: intstr.IntOrString{
+													IntVal: 80,
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					TLS: []v1beta1.IngressTLS{
+						{
+							Hosts:      []string{"hook-jx.1.2.3.4.nip.io"},
+							SecretName: "",
+						},
+					},
+				},
+			},
+		},
+		{
+			Name:        "http-NodePort",
+			ExpectedURL: "http://1.2.3.4:4567/jx/hook",
+			Ingress: &v1beta1.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "hook",
+					Annotations: map[string]string{
+						kube.AnnotationHost: "1.2.3.4:4567",
+					},
+				},
+				Spec: v1beta1.IngressSpec{
+					Rules: []v1beta1.IngressRule{
+						{
+							IngressRuleValue: v1beta1.IngressRuleValue{
+								HTTP: &v1beta1.HTTPIngressRuleValue{
+									Paths: []v1beta1.HTTPIngressPath{
+										{
+											Path: "/jx/hook",
+											Backend: v1beta1.IngressBackend{
+												ServiceName: "hook",
+												ServicePort: intstr.IntOrString{
+													IntVal: 80,
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		actual := services.IngressURL(tc.Ingress)
+		assert.Equal(t, tc.ExpectedURL, actual, "IngressURL for %s", tc.Name)
+		t.Logf("test %s generated URL from Ingress %s", tc.Name, actual)
+	}
 }

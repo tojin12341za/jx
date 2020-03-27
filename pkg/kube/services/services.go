@@ -162,8 +162,20 @@ func IngressURL(ing *v1beta1.Ingress) string {
 					}
 				}
 			}
+			ann := ing.Annotations
+			if hostname == "" && ann != nil {
+				hostname = ann[kube.AnnotationHost]
+			}
 			if hostname != "" {
 				url := "http://" + hostname
+				if rule.HTTP != nil {
+					if len(rule.HTTP.Paths) > 0 {
+						p := rule.HTTP.Paths[0].Path
+						if p != "" {
+							url += p
+						}
+					}
+				}
 				log.Logger().Debugf("found service url %s", url)
 				return url
 			}
