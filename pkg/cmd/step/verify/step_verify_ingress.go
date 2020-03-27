@@ -235,11 +235,13 @@ func (o *StepVerifyIngressOptions) discoverIngressDomain(requirements *config.Re
 	if o.IngressNamespace == "" {
 		o.IngressNamespace = defaultIngressValues.Namespace
 	}
+	isNodePort := requirements.Ingress.ServiceType == "NodePort"
 	domain, err = o.GetDomain(client, "",
 		o.Provider,
 		o.IngressNamespace,
 		o.IngressService,
-		o.ExternalIP)
+		o.ExternalIP,
+		isNodePort)
 	if err != nil {
 		return errors.Wrapf(err, "getting a domain for ingress service %s/%s", o.IngressNamespace, o.IngressService)
 	}
@@ -253,7 +255,8 @@ func (o *StepVerifyIngressOptions) discoverIngressDomain(requirements *config.Re
 				o.Provider,
 				o.IngressNamespace,
 				o.IngressService,
-				o.ExternalIP)
+				o.ExternalIP,
+				isNodePort)
 			if err != nil {
 				return errors.Wrapf(err, "getting a domain for ingress service %s/%s", o.IngressNamespace, o.IngressService)
 			}

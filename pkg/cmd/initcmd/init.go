@@ -622,7 +622,7 @@ controller:
 			log.Logger().Infof("Using external IP: %s", util.ColorInfo(externalIP))
 		}
 
-		o.Flags.Domain, err = o.GetDomain(client, o.Flags.Domain, o.Flags.Provider, ingressNamespace, o.Flags.IngressService, externalIP)
+		o.Flags.Domain, err = o.GetDomain(client, o.Flags.Domain, o.Flags.Provider, ingressNamespace, o.Flags.IngressService, externalIP, false)
 		o.CommonOptions.Domain = o.Flags.Domain
 		if err != nil {
 			return err

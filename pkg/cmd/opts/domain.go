@@ -13,52 +13,79 @@ import (
 	"github.com/jenkins-x/jx/pkg/log"
 	"github.com/jenkins-x/jx/pkg/surveyutils"
 	"github.com/jenkins-x/jx/pkg/util"
+	"github.com/pkg/errors"
 	"gopkg.in/AlecAivazis/survey.v1"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
 // GetDomain returns the domain name, trying to infer it either from various Kubernetes resources or cloud provider. If no domain
 // can be determined, it will prompt to the user for a value.
-func (o *CommonOptions) GetDomain(client kubernetes.Interface, domain string, provider string, ingressNamespace string, ingressService string, externalIP string) (string, error) {
+func (o *CommonOptions) GetDomain(client kubernetes.Interface, domain string, provider string, ingressNamespace string, ingressService string, externalIP string, nodePort bool) (string, error) {
 	surveyOpts := survey.WithStdio(o.In, o.Out, o.Err)
 	address := externalIP
-	if address == "" {
-		if provider == cloud.MINIKUBE {
+	switch provider {
+	case cloud.MINIKUBE:
+		if address == "" {
 			ip, err := o.GetCommandOutput("", "minikube", "ip")
 			if err != nil {
 				return "", err
 			}
 			address = ip
-		} else if provider == cloud.MINISHIFT {
+		}
+
+	case cloud.MINISHIFT:
+		if address == "" {
 			ip, err := o.GetCommandOutput("", "minishift", "ip")
 			if err != nil {
 				return "", err
 			}
 			address = ip
-		} else {
-			info := util.ColorInfo
-			log.Logger().Infof("Waiting to find the external host name of the ingress controller Service in namespace %s with name %s",
-				info(ingressNamespace), info(ingressService))
-			if provider == cloud.KUBERNETES {
-				log.Logger().Infof("If you are installing Jenkins X on premise you may want to use the '--on-premise' flag or specify the '--external-ip' flags. See: %s",
-					info("https://jenkins-x.io/getting-started/install-on-cluster/#installing-jenkins-x-on-premise"))
+		}
+
+	default:
+		info := util.ColorInfo
+		log.Logger().Infof("Waiting to find the external host name of the ingress controller Service in namespace %s with name %s",
+			info(ingressNamespace), info(ingressService))
+		if provider == cloud.KUBERNETES {
+			log.Logger().Infof("If you are installing Jenkins X on premise you may want to use the '--on-premise' flag or specify the '--external-ip' flags. See: %s",
+				info("https://jenkins-x.io/getting-started/install-on-cluster/#installing-jenkins-x-on-premise"))
+		}
+		svc, err := client.CoreV1().Services(ingressNamespace).Get(ingressService, metav1.GetOptions{})
+		if err != nil {
+			return "", err
+		}
+		if svc != nil {
+			for _, v := range svc.Status.LoadBalancer.Ingress {
+				if v.IP != "" {
+					address = v.IP
+				} else if v.Hostname != "" {
+					address = v.Hostname
+				}
 			}
-			svc, err := client.CoreV1().Services(ingressNamespace).Get(ingressService, metav1.GetOptions{})
-			if err != nil {
-				return "", err
+		}
+		if svc.Spec.Type == corev1.ServiceTypeNodePort {
+			// lets find the first node external address
+			if externalIP == "" {
+				externalIP, err = findFirstExternalNodeIP(client)
+				if err != nil {
+					return "", errors.Wrap(err, "no externalIP specified and failed to find a Node externalIP probably due to RBAC")
+				}
 			}
-			if svc != nil {
-				for _, v := range svc.Status.LoadBalancer.Ingress {
-					if v.IP != "" {
-						address = v.IP
-					} else if v.Hostname != "" {
-						address = v.Hostname
+
+			// lets find the node port
+			if externalIP != "" {
+				for _, p := range svc.Spec.Ports {
+					if p.NodePort != 0 {
+						address = fmt.Sprintf("%s:%d", externalIP, p.NodePort)
 					}
 				}
 			}
 		}
 	}
+
 	defaultDomain := address
 
 	if provider == cloud.AWS || provider == cloud.EKS {
@@ -119,7 +146,7 @@ func (o *CommonOptions) GetDomain(client kubernetes.Interface, domain string, pr
 		log.Logger().Infof(err.Error())
 	}
 
-	if address != "" {
+	if address != "" && !nodePort {
 		addNip := true
 		aip := net.ParseIP(address)
 		if aip == nil {
@@ -196,4 +223,21 @@ func (o *CommonOptions) GetDomain(client kubernetes.Interface, domain string, pr
 	}
 
 	return domain, nil
+}
+
+func findFirstExternalNodeIP(client kubernetes.Interface) (string, error) {
+	nodeList, err := client.CoreV1().Nodes().List(metav1.ListOptions{})
+	if err != nil && !apierrors.IsNotFound(err) {
+		return "", errors.Wrap(err, "cannot list Nodes to find externalIP")
+	}
+	for _, node := range nodeList.Items {
+		for _, add := range node.Status.Addresses {
+			if add.Type == corev1.NodeExternalIP {
+				if add.Address != "" {
+					return add.Address, nil
+				}
+			}
+		}
+	}
+	return "", nil
 }
