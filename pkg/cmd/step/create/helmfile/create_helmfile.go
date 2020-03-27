@@ -59,9 +59,10 @@ type GeneratedValues struct {
 // CreateHelmfileOptions the options for the create helmfile command
 type CreateHelmfileOptions struct {
 	options.CreateOptions
-	Dir        string
-	outputDir  string
-	valueFiles []string
+	Dir                  string
+	IgnoreNamespaceCheck bool
+	outputDir            string
+	valueFiles           []string
 }
 
 // NewCmdCreateHelmfile  creates a command object for the "create" command
@@ -443,9 +444,11 @@ func (o *CreateHelmfileOptions) ensureNamespaceExist(helmfileRepos []helmfile2.R
 
 	for k, release := range helmfileReleases {
 		namespaceMatched := false
-		for _, ns := range namespaces.Items {
-			if ns.Name == release.Namespace {
-				namespaceMatched = true
+		if !o.IgnoreNamespaceCheck {
+			for _, ns := range namespaces.Items {
+				if ns.Name == release.Namespace {
+					namespaceMatched = true
+				}
 			}
 		}
 		if release.Namespace != "" && release.Namespace != currentNamespace && !namespaceMatched {
