@@ -1018,10 +1018,16 @@ func (o *StepVerifyPreInstallOptions) verifyIngress(requirements *config.Require
 	modified := false
 	// if we are discovering the domain name from the ingress service this can change if a cluster/service is recreated
 	// so we need to recreate it each time to be sure the IP address is still correct
-	if requirements.Ingress.IsAutoDNSDomain() && !requirements.Ingress.IgnoreLoadBalancer && requirements.Ingress.ServiceType != "NodePort" {
-		log.Logger().Infof("Clearing the domain %s as when using auto-DNS domains we need to regenerate to ensure its always accurate in case the cluster or ingress service is recreated", util.ColorInfo(domain))
-		requirements.Ingress.Domain = ""
-		modified = true
+	if !requirements.Ingress.IgnoreLoadBalancer {
+		if requirements.Ingress.IsAutoDNSDomain() && requirements.Ingress.ServiceType != "NodePort" {
+			log.Logger().Infof("Clearing the domain %s as when using auto-DNS domains we need to regenerate to ensure its always accurate in case the cluster or ingress service is recreated", util.ColorInfo(domain))
+			requirements.Ingress.Domain = ""
+			modified = true
+		} else if requirements.Ingress.ServiceType == "NodePort" {
+			log.Logger().Infof("Clearing the domain %s as we need to ensure we discover the domain from the ingress NodePort and optional node externalIP in case the cluster, node or ingress service is recreated", util.ColorInfo(domain))
+			requirements.Ingress.Domain = ""
+			modified = true
+		}
 	}
 
 	switch requirements.Cluster.Provider {
