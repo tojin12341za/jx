@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -739,28 +738,6 @@ func (o *StepVerifyPreInstallOptions) gatherRequirements(requirements *config.Re
 	return requirements, nil
 }
 
-// getAPIServerHost returns the kubernetes API server host
-func (o *StepVerifyPreInstallOptions) getAPIServerHost() (string, error) {
-	urlText, err := o.getAPIServerHostURL()
-	if err != nil || urlText == "" {
-		return "", err
-	}
-	u, err := url.Parse(urlText)
-	if err != nil {
-		return "", errors.Wrapf(err, "failed to parse API server URL: %s", urlText)
-	}
-	return u.Host, nil
-}
-
-// getAPIServerHostURL returns the kubernetes API server host URL
-func (o *StepVerifyPreInstallOptions) getAPIServerHostURL() (string, error) {
-	cfg, _, err := o.Kube().LoadConfig()
-	if err != nil {
-		return "", errors.Wrap(err, "failed to find Kubernetes API server")
-	}
-	return kube.CurrentServer(cfg), nil
-}
-
 func (o *StepVerifyPreInstallOptions) writeOwnersFile(requirements *config.RequirementsConfig) error {
 	if len(requirements.Cluster.DevEnvApprovers) > 0 {
 		path := filepath.Join(o.Dir, "OWNERS")
@@ -1071,24 +1048,6 @@ func (o *StepVerifyPreInstallOptions) verifyIngress(requirements *config.Require
 		if requirements.Ingress.Domain == "" {
 			if ip != "" {
 				requirements.Ingress.Domain = fmt.Sprintf("%s.nip.io", ip)
-				log.Logger().Infof("defaulting to ingress domain: %s", util.ColorInfo(requirements.Ingress.Domain))
-			} else {
-				log.Logger().Info("cannot detect the external IP address of this machine. Please update the requirements ingress.domain value to access your ingress controller")
-			}
-		}
-
-	default:
-		if requirements.Ingress.ServiceType == "NodePort" && requirements.Ingress.Domain == "" {
-			ip, err := o.getAPIServerHost()
-			if err != nil {
-				return err
-			}
-			if ip == "" {
-				return fmt.Errorf("could not find the kubernetes API server host/IP address")
-			}
-			if ip != "" {
-				requirements.Ingress.Domain = fmt.Sprintf("%s.nip.io", ip)
-				modified = true
 				log.Logger().Infof("defaulting to ingress domain: %s", util.ColorInfo(requirements.Ingress.Domain))
 			} else {
 				log.Logger().Info("cannot detect the external IP address of this machine. Please update the requirements ingress.domain value to access your ingress controller")

@@ -49,9 +49,9 @@ func (o *CommonOptions) GetDomain(client kubernetes.Interface, domain string, pr
 		info := util.ColorInfo
 		log.Logger().Infof("Waiting to find the external host name of the ingress controller Service in namespace %s with name %s",
 			info(ingressNamespace), info(ingressService))
-		if provider == cloud.KUBERNETES {
-			log.Logger().Infof("If you are installing Jenkins X on premise you may want to use the '--on-premise' flag or specify the '--external-ip' flags. See: %s",
-				info("https://jenkins-x.io/getting-started/install-on-cluster/#installing-jenkins-x-on-premise"))
+		if provider == cloud.KUBERNETES && externalIP == "" {
+			log.Logger().Infof("If you are installing Jenkins X on premise you can specify 'ingress.externalIP' on the 'jx-requirements.yml' file to configure the external ingress host for NodePort based ingress. See: %s",
+				info("https://jenkins-x.io/docs/labs/boot/getting-started/config/#ingress"))
 		}
 		svc, err := client.CoreV1().Services(ingressNamespace).Get(ingressService, metav1.GetOptions{})
 		if err != nil {

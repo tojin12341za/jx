@@ -247,6 +247,8 @@ type IngressConfig struct {
 	ApiVersion string `json:"apiVersion,omitempty"`
 	// DNS is enabled
 	ExternalDNS bool `json:"externalDNS"`
+	// ExternalIP if using 'serviceType: NodePort' then this allows the external IP address used for accessing ingress on the NodePort
+	ExternalIP string `json:"externalIP,omitempty"`
 	// CloudDNSSecretName secret name which contains the service account for external-dns and cert-manager issuer to
 	// access the Cloud DNS service to resolve a DNS challenge
 	CloudDNSSecretName string `json:"cloud_dns_secret_name,omitempty"`

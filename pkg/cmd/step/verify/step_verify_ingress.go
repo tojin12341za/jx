@@ -48,7 +48,6 @@ type StepVerifyIngressOptions struct {
 	Provider         string
 	IngressNamespace string
 	IngressService   string
-	ExternalIP       string
 	LazyCreate       bool
 	LazyCreateFlag   string
 }
@@ -86,7 +85,6 @@ func NewCmdStepVerifyIngress(commonOpts *opts.CommonOptions) *cobra.Command {
 
 	cmd.Flags().StringVarP(&options.IngressNamespace, "ingress-namespace", "", "", "The namespace for the Ingress controller")
 	cmd.Flags().StringVarP(&options.IngressService, "ingress-service", "", "", "The name of the Ingress controller Service")
-	cmd.Flags().StringVarP(&options.ExternalIP, "external-ip", "", "", "The external IP used to access ingress endpoints from outside the Kubernetes cluster. For bare metal on premise clusters this is often the IP of the Kubernetes master. For cloud installations this is often the external IP of the ingress LoadBalancer.")
 	cmd.Flags().StringVarP(&options.Provider, "provider", "", "", "Cloud service providing the Kubernetes cluster.  Supported providers: "+cloud.KubernetesProviderOptions())
 	cmd.Flags().StringVarP(&options.LazyCreateFlag, "lazy-create", "", "", fmt.Sprintf("Specify true/false as to whether to lazily create missing resources. If not specified it is enabled if Terraform is not specified in the %s file", config.RequirementsConfigFileName))
 	return cmd
@@ -236,11 +234,12 @@ func (o *StepVerifyIngressOptions) discoverIngressDomain(requirements *config.Re
 		o.IngressNamespace = defaultIngressValues.Namespace
 	}
 	isNodePort := requirements.Ingress.ServiceType == "NodePort"
+	externalIP := requirements.Ingress.ExternalIP
 	domain, err = o.GetDomain(client, "",
 		o.Provider,
 		o.IngressNamespace,
 		o.IngressService,
-		o.ExternalIP,
+		externalIP,
 		isNodePort)
 	if err != nil {
 		return errors.Wrapf(err, "getting a domain for ingress service %s/%s", o.IngressNamespace, o.IngressService)
@@ -255,7 +254,7 @@ func (o *StepVerifyIngressOptions) discoverIngressDomain(requirements *config.Re
 				o.Provider,
 				o.IngressNamespace,
 				o.IngressService,
-				o.ExternalIP,
+				externalIP,
 				isNodePort)
 			if err != nil {
 				return errors.Wrapf(err, "getting a domain for ingress service %s/%s", o.IngressNamespace, o.IngressService)
