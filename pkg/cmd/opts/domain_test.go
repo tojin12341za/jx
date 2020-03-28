@@ -46,6 +46,55 @@ func TestDomain(t *testing.T) {
 								Name:     "http",
 								NodePort: 30123,
 							},
+							{
+								Name:     "https",
+								NodePort: 32123,
+							},
+						},
+					},
+				},
+				&corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node1",
+					},
+					Spec: corev1.NodeSpec{},
+					Status: corev1.NodeStatus{
+						Addresses: []corev1.NodeAddress{
+							{
+								Type:    corev1.NodeInternalIP,
+								Address: "1.2.3.4",
+							},
+							{
+								Type:    corev1.NodeExternalIP,
+								Address: "35.189.202.25",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Name:     "on-premise-nodePort2",
+			Expected: "35.189.202.25:30123",
+			Provider: "kubernetes",
+			NodePort: true,
+			Resources: []runtime.Object{
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      ingressService,
+						Namespace: ingressNamespace,
+					},
+					Spec: corev1.ServiceSpec{
+						Type: corev1.ServiceTypeNodePort,
+						Ports: []corev1.ServicePort{
+							{
+								Name:     "https",
+								NodePort: 32123,
+							},
+							{
+								Name:     "http",
+								NodePort: 30123,
+							},
 						},
 					},
 				},

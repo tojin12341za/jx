@@ -78,8 +78,17 @@ func (o *CommonOptions) GetDomain(client kubernetes.Interface, domain string, pr
 			// lets find the node port
 			if externalIP != "" {
 				for _, p := range svc.Spec.Ports {
-					if p.NodePort != 0 {
+					if p.NodePort != 0 && p.Name == "http" {
 						address = fmt.Sprintf("%s:%d", externalIP, p.NodePort)
+						break
+					}
+				}
+				if address == "" {
+					for _, p := range svc.Spec.Ports {
+						if p.NodePort != 0 {
+							address = fmt.Sprintf("%s:%d", externalIP, p.NodePort)
+							break
+						}
 					}
 				}
 			}
