@@ -683,13 +683,6 @@ func (o *StepVerifyPreInstallOptions) gatherRequirements(requirements *config.Re
 				}
 			}
 		}
-	} else if requirements.Cluster.Provider == cloud.KUBERNETES {
-		if requirements.Cluster.Registry == "" {
-			if requirements.Cluster.Namespace == "" {
-				requirements.Cluster.Namespace = "jx"
-			}
-			requirements.Cluster.Registry = fmt.Sprintf("docker-registry.%s.svc.cluster.local", requirements.Cluster.Namespace)
-		}
 	}
 
 	if requirements.Cluster.ClusterName == "" && !o.BatchMode {

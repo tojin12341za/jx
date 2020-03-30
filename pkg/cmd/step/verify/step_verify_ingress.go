@@ -23,6 +23,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	pipelineapi "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -268,6 +269,25 @@ func (o *StepVerifyIngressOptions) discoverIngressDomain(requirements *config.Re
 		return fmt.Errorf("failed to discover domain for ingress service %s/%s", o.IngressNamespace, o.IngressService)
 	}
 	requirements.Ingress.Domain = domain
+
+	// if we don't have a container registry defined lets default it from the service IP
+	if requirements.Cluster.Provider == cloud.KUBERNETES && requirements.Cluster.Registry == "" {
+		if requirements.Cluster.Namespace == "" {
+			requirements.Cluster.Namespace = "jx"
+		}
+
+		svc, err := client.CoreV1().Services(requirements.Cluster.Namespace).Get("docker-registry", metav1.GetOptions{})
+		if err != nil && !apierrors.IsNotFound(err) {
+			return errors.Wrapf(err, "failed to list services in namespace %s so we can default the registry host", requirements.Cluster.Namespace)
+		}
+
+		if svc != nil && svc.Spec.ClusterIP != "" {
+			requirements.Cluster.Registry = svc.Spec.ClusterIP
+		} else {
+			log.Logger().Warnf("could not find the clusterIP for the service docker-registry in the namespace %s so that we could default the container registry host", requirements.Cluster.Namespace)
+		}
+	}
+
 	err = requirements.SaveConfig(requirementsFileName)
 	if err != nil {
 		return errors.Wrapf(err, "failed to save changes to file: %s", requirementsFileName)
