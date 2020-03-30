@@ -296,6 +296,39 @@ func TestModifyEnvironmentRequirements(t *testing.T) {
 	}
 }
 
+func TestModifyEnvironmentRequirementsForNodePort(t *testing.T) {
+	devReq := config.NewRequirementsConfig()
+	devReq.VersionStream.Ref = "master"
+	devReq.VersionStream.URL = "https://github.com/jenkins-x/jenkins-x-versions.git"
+	devReq.Cluster.DevEnvApprovers = []string{"jstrachan", "rawlingsj"}
+	devReq.Cluster.Provider = "kubernetes"
+	devReq.Ingress.ServiceType = "NodePort"
+
+	stagingReq := NewRemoteRequirementsConfig()
+	stagingEnv := kube.NewPermanentEnvironment("staging")
+	stagingEnv.Spec.RemoteCluster = true
+	stagingEnv.Spec.Source.URL = "https://github.com/someuser/environment-mycluster-staging.git"
+	stagingEnv.Spec.Source.Ref = "master"
+	err := ModifyEnvironmentRequirements(os.Stdout, devReq, stagingEnv, stagingReq)
+	require.NoError(t, err, "failed to invoke ModifyEnvironmentRequirements")
+
+	expectedFile := path.Join("test_data", "verify_environments", "remote_requirements_nodeport", "jx-requirements.yml")
+	assert.FileExists(t, expectedFile)
+
+	expected, err := config.LoadRequirementsConfigFile(expectedFile)
+	require.NoError(t, err, "failed to load expected requirements %s", expectedFile)
+	expected.Repository = config.RepositoryTypeUnknown
+	diff := cmp.Diff(stagingReq, expected)
+	if diff != "" {
+		t.Logf("generated staging requirements not matching:\n")
+		t.Logf("%s\n", diff)
+		assert.Fail(t, "generated staging requirements not matching")
+
+		logYaml(t, stagingReq, "actual")
+		logYaml(t, expected, "expected")
+	}
+}
+
 func logYaml(t *testing.T, value interface{}, message string) {
 	data, err := yaml.Marshal(value)
 	assert.NoError(t, err, "failed to marshal to yaml")

@@ -495,6 +495,9 @@ func ModifyEnvironmentRequirements(out io.Writer, devRequirements *config.Requir
 	if string(remoteRequirements.Ingress.Kind) == "" {
 		remoteRequirements.Ingress.Kind = devRequirements.Ingress.Kind
 	}
+	if devRequirements.Ingress.ServiceType != "" && remoteRequirements.Ingress.ServiceType == "" {
+		remoteRequirements.Ingress.ServiceType = devRequirements.Ingress.ServiceType
+	}
 	if env.Spec.Namespace == "" {
 		env.Spec.Namespace = "jx-" + env.Name
 	}
