@@ -9,10 +9,7 @@ import (
 
 	"github.com/jenkins-x/jx/pkg/cmd/opts/step"
 
-	"github.com/jenkins-x/jx/pkg/cloud/gke"
-	"github.com/jenkins-x/jx/pkg/cloud/gke/externaldns"
 	"github.com/jenkins-x/jx/pkg/config"
-	"github.com/jenkins-x/jx/pkg/kube"
 	"github.com/jenkins-x/jx/pkg/util"
 
 	"github.com/jenkins-x/jx/pkg/cloud"
@@ -101,7 +98,6 @@ func (o *StepVerifyIngressOptions) Run() error {
 		}
 	}
 
-	info := util.ColorInfo
 	ns := o.Namespace
 	if ns == "" {
 		ns = os.Getenv("DEPLOY_NAMESPACE")
@@ -134,54 +130,6 @@ func (o *StepVerifyIngressOptions) Run() error {
 		err = o.discoverIngressDomain(requirements, requirementsFileName, appsConfig)
 		if err != nil {
 			return errors.Wrapf(err, "failed to discover the Ingress domain")
-		}
-	}
-
-	// if we're using GKE and folks have provided a domain, i.e. we're  not using the Jenkins X default nip.io
-	if requirements.Ingress.Domain != "" && !requirements.Ingress.IsAutoDNSDomain() && requirements.Cluster.Provider == cloud.GKE {
-		// then it may be a good idea to enable external dns and TLS
-		if !requirements.Ingress.ExternalDNS {
-			log.Logger().Info("using a custom domain and GKE, you can enable external dns and TLS")
-		} else if !requirements.Ingress.TLS.Enabled {
-			log.Logger().Info("using GKE with external dns, you can also now enable TLS")
-		}
-
-		if requirements.Ingress.ExternalDNS {
-			log.Logger().Infof("validating the external-dns secret in namespace %s\n", info(ns))
-
-			kubeClient, err := o.KubeClient()
-			if err != nil {
-				return errors.Wrap(err, "creating kubernetes client")
-			}
-
-			cloudDNSSecretName := requirements.Ingress.CloudDNSSecretName
-			if cloudDNSSecretName == "" {
-				cloudDNSSecretName = gke.GcpServiceAccountSecretName(kube.DefaultExternalDNSReleaseName)
-				requirements.Ingress.CloudDNSSecretName = cloudDNSSecretName
-			}
-
-			err = kube.ValidateSecret(kubeClient, cloudDNSSecretName, externaldns.ServiceAccountSecretKey, ns)
-			if err != nil {
-				if o.LazyCreate {
-					log.Logger().Infof("attempting to lazily create the external-dns secret %s\n", info(ns))
-
-					_, err = externaldns.CreateExternalDNSGCPServiceAccount(o.GCloud(), kubeClient, kube.DefaultExternalDNSReleaseName, ns,
-						requirements.Cluster.ClusterName, requirements.Cluster.ProjectID)
-					if err != nil {
-						return errors.Wrap(err, "creating the ExternalDNS GCP Service Account")
-					}
-					// lets rerun the verify step to ensure its all sorted now
-					err = kube.ValidateSecret(kubeClient, cloudDNSSecretName, externaldns.ServiceAccountSecretKey, ns)
-				}
-			}
-			if err != nil {
-				return errors.Wrap(err, "validating external-dns secret")
-			}
-
-			err = o.GCloud().EnableAPIs(requirements.Cluster.ProjectID, "dns")
-			if err != nil {
-				return errors.Wrap(err, "unable to enable 'dns' api")
-			}
 		}
 	}
 

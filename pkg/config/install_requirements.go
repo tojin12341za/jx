@@ -245,7 +245,7 @@ type IngressConfig struct {
 	Annotations map[string]string `json:"annotations,omitempty"`
 	// ApiVersion specifies the API version for the generated ingress resousrces
 	ApiVersion string `json:"apiVersion,omitempty"`
-	// DNS is enabled
+	// Deprecated: No longer used as we use jx-apps.yaml and helm to enable external dns; kept for compatibility.
 	ExternalDNS bool `json:"externalDNS"`
 	// ExternalIP if using 'serviceType: NodePort' then this allows the external IP address used for accessing ingress on the NodePort
 	ExternalIP string `json:"externalIP,omitempty"`
