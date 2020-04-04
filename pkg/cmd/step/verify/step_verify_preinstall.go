@@ -1091,15 +1091,6 @@ func (o *StepVerifyPreInstallOptions) ValidateRequirements(requirements *config.
 
 	modified := false
 
-	if requirements.Helmfile {
-		// we don't yet support vault
-		if requirements.SecretStorage == config.SecretStorageTypeVault {
-			log.Logger().Warn("vault is not yet supported for helm 3 so defaulting to local instead")
-			requirements.SecretStorage = config.SecretStorageTypeLocal
-			modified = true
-		}
-	}
-
 	// lets verify that we have a repository name defined for every environment
 	for i, env := range requirements.Environments {
 		if env.Repository == "" {
