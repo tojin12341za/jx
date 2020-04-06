@@ -491,7 +491,7 @@ func ForkAndPullRepo(gitURL string, dir string, baseRef string, branchName strin
 
 		currentUpstreamURL, err := gitter.DiscoverUpstreamGitURL(gitConfig)
 		if err != nil {
-			log.Logger().Warn("")
+			log.Logger().Warnf("could not find upstream git URL %s", err.Error())
 		}
 
 		finalUpstreamURL, err := AddUserToURL(gitURL, username)

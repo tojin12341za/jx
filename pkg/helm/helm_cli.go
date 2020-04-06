@@ -212,6 +212,9 @@ func (h *HelmCLI) ListRepos() (map[string]string, error) {
 func (h *HelmCLI) SearchCharts(filter string, allVersions bool) ([]ChartSummary, error) {
 	answer := []ChartSummary{}
 	args := []string{"search", filter}
+	if h.BinVersion == V3 {
+		args = []string{"search", "repo", filter}
+	}
 	if allVersions {
 		args = append(args, "--versions")
 	}

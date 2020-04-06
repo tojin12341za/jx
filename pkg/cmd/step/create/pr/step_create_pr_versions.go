@@ -188,9 +188,10 @@ func (o *StepCreatePullRequestVersionsOptions) Run() error {
 		}
 		modifyFns = append(modifyFns, mlPro.WrapChangeFilesWithCommitFn("versions", operations.CreatePullRequestMLBuildersFn(mlBuilderImageVersion)))
 	}
+	helmer := o.Helm()
 	if len(o.Includes) > 0 {
 		for _, kind := range o.Kinds {
-			modifyFns = append(modifyFns, o.CreatePullRequestUpdateVersionFilesFn(o.Includes, o.Excludes, kind, o.Helm()))
+			modifyFns = append(modifyFns, o.CreatePullRequestUpdateVersionFilesFn(o.Includes, o.Excludes, kind, helmer))
 		}
 	} else {
 		pro := operations.PullRequestOperation{
@@ -213,7 +214,7 @@ func (o *StepCreatePullRequestVersionsOptions) Run() error {
 		for _, kind := range o.Kinds {
 			switch kind {
 			case string(versionstream.KindChart):
-				modifyFns = append(modifyFns, pro.WrapChangeFilesWithCommitFn("versions", operations.CreateChartChangeFilesFn(o.Name, o.Version, kind, &pro, o.Helm(), vaultClient, o.GetIOFileHandles())))
+				modifyFns = append(modifyFns, pro.WrapChangeFilesWithCommitFn("versions", operations.CreateChartChangeFilesFn(o.Name, o.Version, kind, &pro, helmer, vaultClient, o.GetIOFileHandles())))
 			}
 
 		}
@@ -224,12 +225,38 @@ func (o *StepCreatePullRequestVersionsOptions) Run() error {
 	return o.CreatePullRequest("versionstream", func(dir string, gitInfo *gits.GitRepository) ([]string, error) {
 		for _, kind := range o.Kinds {
 			if versionstream.VersionKind(kind) == versionstream.KindChart {
-				_, err := o.HelmInitDependency(dir, o.DefaultReleaseCharts())
+				resolver, err := o.GetVersionResolver()
 				if err != nil {
-					return nil, errors.Wrap(err, "failed to ensure the helm repositories were setup")
+					return nil, errors.Wrap(err, "failed to create version resolver")
 				}
+
+				repoPrefixes, err := resolver.GetRepositoryPrefixes()
+				if err != nil {
+					return nil, errors.Wrap(err, "failed to find the repository prefixes")
+				}
+
+				repos, err := helmer.ListRepos()
+				if err != nil {
+					return nil, errors.Wrap(err, "failed to list helm repositories")
+				}
+
+				for _, rp := range repoPrefixes.Repositories {
+					if len(rp.URLs) > 0 {
+						prefix := rp.Prefix
+						repoURL := rp.URLs[0]
+						if repos[prefix] == "" && !strings.HasPrefix(repoURL, "http://bucketrepo/") {
+							log.Logger().Infof("adding repository %s %s", prefix, repoURL)
+
+							err = helmer.AddRepo(prefix, repoURL, "", "")
+							if err != nil {
+								return nil, errors.Wrapf(err, "failed to add repository %s %s", prefix, repoURL)
+							}
+						}
+					}
+				}
+
 				log.Logger().Info("updating helm repositories to find the latest chart versions...\n")
-				err = o.Helm().UpdateRepo()
+				err = helmer.UpdateRepo()
 				if err != nil {
 					return nil, errors.Wrap(err, "failed to update helm repos")
 				}
