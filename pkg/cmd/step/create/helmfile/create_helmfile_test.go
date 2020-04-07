@@ -39,7 +39,7 @@ func TestGeneratedHelmfiles(t *testing.T) {
 	rootTempDir, err := ioutil.TempDir("", "test-applications-config")
 	assert.NoError(t, err, "should create a temporary config Dir")
 
-	for _, name := range []string{"istio", "dedupe_repositories", "empty-system", "empty", "alias", "namespace-chart", "override-values"} {
+	for _, name := range []string{"force", "istio", "dedupe_repositories", "empty-system", "empty", "alias", "namespace-chart", "override-values"} {
 		tempDir := filepath.Join(rootTempDir, name)
 		sourceDir := filepath.Join("test_data", name)
 		o := &CreateHelmfileOptions{
@@ -86,31 +86,7 @@ func TestExtraAppValues(t *testing.T) {
 	assert.NoError(t, err)
 
 	// assert we added the local values.yaml for the velero app
-	assert.Equal(t, "velero/values.yaml", h.Releases[0].Values[1])
-
-}
-
-func TestExtraFlagValues(t *testing.T) {
-	tempDir, err := ioutil.TempDir("", "test-applications-config")
-	assert.NoError(t, err, "should create a temporary config Dir")
-
-	o := &CreateHelmfileOptions{
-		outputDir:     tempDir,
-		Dir:           path.Join("test_data"),
-		valueFiles:    []string{"foo/bar.yaml"},
-		CreateOptions: *getCreateOptions(),
-	}
-	configureTestCommonOptions(t, o)
-	o.SetEnvironmentContext(createTestEnvironmentContext(t))
-	err = o.Run()
-	assert.NoError(t, err)
-
-	h, _, err := loadHelmfile(path.Join(tempDir, "apps"))
-	assert.NoError(t, err)
-
-	// assert we added the values file passed in as a CLI flag
-	assert.Equal(t, "foo/bar.yaml", h.Releases[0].Values[0])
-
+	assert.Equal(t, "velero/values.yaml", h.Releases[0].Values[2])
 }
 
 func TestCreateNamespaceChart(t *testing.T) {
@@ -145,28 +121,6 @@ func TestCreateNamespaceChart(t *testing.T) {
 		}
 	}
 
-}
-
-func TestSystem(t *testing.T) {
-	tempDir, err := ioutil.TempDir("", "test-applications-config")
-	assert.NoError(t, err, "should create a temporary config Dir")
-
-	o := &CreateHelmfileOptions{
-		outputDir: tempDir,
-		Dir:       path.Join("test_data", "system"),
-	}
-	configureTestCommonOptions(t, o)
-	o.SetEnvironmentContext(createTestEnvironmentContext(t))
-
-	err = o.Run()
-	assert.NoError(t, err)
-
-	systemHelmfile, _, err := loadHelmfile(path.Join(tempDir, "system"))
-	assert.NoError(t, err)
-
-	// assert we added the local values.yaml for the velero app
-	assert.Equal(t, "velero", systemHelmfile.Releases[0].Name)
-	assert.Equal(t, "cert-manager", systemHelmfile.Releases[1].Name)
 }
 
 func loadHelmfile(dir string) (*helmfile2.HelmState, string, error) {

@@ -55,6 +55,20 @@ type App struct {
 	Values []string `json:"values,omitempty"`
 	// Hooks is a list of extension points paired with operations, that are executed in specific points of the lifecycle of releases defined in helmfile
 	Hooks []helmfile.Hook `json:"hooks,omitempty"`
+	// Wait, if set to true, will wait until all Pods, PVCs, Services, and minimum number of Pods of a Deployment are in a ready state before marking the release as successful
+	Wait *bool `json:"wait,omitempty"`
+	// Timeout is the time in seconds to wait for any individual Kubernetes operation (like Jobs for hooks, and waits on pod/pvc/svc/deployment readiness) (default 300)
+	Timeout *int `json:"timeout,omitempty"`
+	// RecreatePods, when set to true, instruct helmfile to perform pods restart for the resource if applicable
+	RecreatePods *bool `json:"recreatePods,omitempty"`
+	// Force, when set to true, forces resource update through delete/recreate if needed
+	Force *bool `json:"force,omitempty"`
+	// Installed, when set to true, `delete --purge` the release
+	Installed *bool `json:"installed,omitempty"`
+	// Atomic, when set to true, restore previous state in case of a failed install/upgrade attempt
+	Atomic *bool `json:"atomic,omitempty"`
+	// CleanupOnFail, when set to true, the --cleanup-on-fail helm flag is passed to the upgrade command
+	CleanupOnFail *bool `json:"cleanupOnFail,omitempty"`
 }
 
 // Phase of the pipeline to install application

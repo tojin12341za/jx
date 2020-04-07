@@ -42,4 +42,4 @@ repositories:
 - name: stable
   url: https://kubernetes-charts.storage.googleapis.com
 - name: zloeber
-  url: git+https://github.com/rawlingsj/helm-namespace@chart
+  url: git+https://github.com/zloeber/helm-namespace@chart

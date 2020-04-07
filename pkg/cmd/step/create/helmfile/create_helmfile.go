@@ -288,12 +288,19 @@ func (o *CreateHelmfileOptions) generateHelmFile(ec *envctx.EnvironmentContext, 
 			alias = app.Alias
 		}
 		release := helmfile2.ReleaseSpec{
-			Name:      alias,
-			Namespace: app.Namespace,
-			Version:   version,
-			Chart:     chartName,
-			Values:    extraValuesFiles,
-			Hooks:     app.Hooks,
+			Name:          alias,
+			Namespace:     app.Namespace,
+			Version:       version,
+			Chart:         chartName,
+			Values:        extraValuesFiles,
+			Hooks:         app.Hooks,
+			Wait:          app.Wait,
+			Timeout:       app.Timeout,
+			RecreatePods:  app.RecreatePods,
+			Force:         app.Force,
+			Installed:     app.Installed,
+			Atomic:        app.Atomic,
+			CleanupOnFail: app.CleanupOnFail,
 		}
 		releases = append(releases, release)
 	}
