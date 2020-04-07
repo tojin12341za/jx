@@ -13,6 +13,7 @@ import (
 	"github.com/jenkins-x/jx/pkg/cmd/clients/fake"
 	"github.com/jenkins-x/jx/pkg/cmd/opts"
 	"github.com/jenkins-x/jx/pkg/cmd/testhelpers"
+	"github.com/jenkins-x/jx/pkg/helm"
 	"github.com/jenkins-x/jx/pkg/log"
 	"github.com/jenkins-x/jx/pkg/tests"
 	"github.com/stretchr/testify/assert"
@@ -101,7 +102,7 @@ func TestGetLocalURLMissingApp(t *testing.T) {
 		o.getLocalURL(listOptions)
 	})
 
-	assert.Equal(t, "ERROR: Couldn't find the jx-app-ui app installed in the cluster. Did you add it via jx add app jx-app-ui?\n", stripansi.Strip(logOutput))
+	assert.Equal(t, "ERROR: Couldn't find the ui service in the cluster\n", stripansi.Strip(logOutput))
 }
 
 func TestGetLocalURLMissingService(t *testing.T) {
@@ -171,7 +172,7 @@ func TestChooseLocalPort(t *testing.T) {
 func getFakeClientsAndNs(t *testing.T) (versioned.Interface, kubernetes.Interface, opts.CommonOptions, string) {
 	commonOpts := opts.NewCommonOptionsWithFactory(fake.NewFakeFactory())
 	options := &commonOpts
-	testhelpers.ConfigureTestOptions(options, options.Git(), options.Helm())
+	testhelpers.ConfigureTestOptions(options, options.Git(), helm.NewHelmCLI("helm", helm.V3, "", false))
 
 	jxClient, ns, err := options.JXClientAndDevNamespace()
 	assert.NoError(t, err, "There shouldn't be any error getting the fake JXClient and DevEnv")

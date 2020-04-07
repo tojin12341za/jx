@@ -58,6 +58,11 @@ func (o *AppTestOptions) GetFullDevEnvDir(envDir string) (name string) {
 
 }
 
+const defaultRequirementsYaml = `
+cluster:
+  provider: gke
+`
+
 // DirectlyAddApp adds a dummy app using helm
 func (o *AppTestOptions) AddApp(values map[string]interface{}, prefix string) (string, string, string, error) {
 	// Can't run in parallel
@@ -303,6 +308,10 @@ func CreateAppTestOptions(gitOps bool, appName string, t assert.TestingT) *AppTe
 	if gitOps {
 		devEnv.Spec.Source.URL = devEnvRepo.GitRepo.URL
 		devEnv.Spec.Source.Ref = "master"
+	}
+
+	if devEnv != nil {
+		devEnv.Spec.TeamSettings.BootRequirements = defaultRequirementsYaml
 	}
 
 	fakeGitProvider := gits.NewFakeProvider(fakeRepo, devEnvRepo)

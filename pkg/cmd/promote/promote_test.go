@@ -37,6 +37,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
+const defaultRequirementsYaml = `
+cluster:
+  provider: gke
+`
+
 func TestPromoteToProductionRun(t *testing.T) {
 
 	// prepare the initial setup for testing
@@ -506,6 +511,8 @@ func prepareInitialPromotionEnv(t *testing.T, productionManualPromotion bool) (*
 		"git")
 	production := kube.NewPermanentEnvironmentWithGit("production",
 		"https://fake.git/"+testOrgName+"/"+prodRepoName+".git")
+
+	staging.Spec.TeamSettings.BootRequirements = defaultRequirementsYaml
 	if productionManualPromotion {
 		production.Spec.PromotionStrategy = v1.PromotionStrategyTypeManual
 	}
@@ -513,6 +520,7 @@ func prepareInitialPromotionEnv(t *testing.T, productionManualPromotion bool) (*
 	gitter := gits.NewGitCLI()
 	commonOpts := &opts.CommonOptions{}
 	commonOpts.SetFactory(fake.NewFakeFactory())
+	commonOpts.SetHelm(helm.NewHelmCLI("helm", helm.V3, "", false))
 
 	err := testhelpers.CreateTestEnvironmentDir(commonOpts)
 	assert.NoError(t, err)
