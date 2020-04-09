@@ -560,7 +560,10 @@ func LoadRequirementsConfig(dir string) (*RequirementsConfig, string, error) {
 	for absolute != "" && absolute != "." && absolute != "/" {
 		fileName := filepath.Join(absolute, RequirementsConfigFileName)
 		config, err := LoadRequirementsConfigFile(fileName)
-		if err == nil {
+		if err != nil {
+		  return nil, fileName, err
+		}
+		if err == nil && config != nil {
 			return config, fileName, nil
 		}
 		absolute = filepath.Dir(absolute)
