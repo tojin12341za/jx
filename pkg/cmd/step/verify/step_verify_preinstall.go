@@ -1095,10 +1095,15 @@ func (o *StepVerifyPreInstallOptions) ValidateRequirements(requirements *config.
 	for i, env := range requirements.Environments {
 		if env.Repository == "" {
 			clusterName := requirements.Cluster.ClusterName
-			if clusterName != "" {
-				clusterName = clusterName + "-"
+			repoName := "environment-" + clusterName
+
+			// we only need to add the env key to the git repository if there is more than one environment
+			if len(requirements.Environments) > 1 {
+				if clusterName != "" {
+					clusterName = clusterName + "-"
+				}
+				repoName = "environment-" + clusterName + env.Key
 			}
-			repoName := "environment-" + clusterName + env.Key
 			requirements.Environments[i].Repository = naming.ToValidName(repoName)
 			modified = true
 		}
