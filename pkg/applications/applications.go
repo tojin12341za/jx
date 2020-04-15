@@ -207,7 +207,7 @@ func GetRemoteDeployments(env *v1.Environment) (map[string]appsv1.Deployment, ku
 		log.Logger().Warnf("remote connection to environment %s not supported for provider %s", env.Name, requirements.Cluster.Provider)
 		return nil, kubeClient, nil
 	}
-	deployments, err := kube.GetDeployments(kubeClient, env.Spec.Namespace)
+	deployments, err := kube.GetDeployments(kubeClient, ns)
 	return deployments, kubeClient, err
 }
 
