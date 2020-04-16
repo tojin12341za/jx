@@ -1019,14 +1019,6 @@ func (o *StepCreateTaskOptions) modifyEnvVars(container *corev1.Container, globa
 		}
 	}
 
-	if isKanikoExecutorStep(container) && !o.NoKaniko {
-		if kube.GetSliceEnvVar(envVars, "GOOGLE_APPLICATION_CREDENTIALS") == nil {
-			envVars = append(envVars, corev1.EnvVar{
-				Name:  "GOOGLE_APPLICATION_CREDENTIALS",
-				Value: o.KanikoSecretMount,
-			})
-		}
-	}
 	if kube.GetSliceEnvVar(envVars, "PREVIEW_VERSION") == nil && kube.GetSliceEnvVar(envVars, "VERSION") != nil {
 		envVars = append(envVars, corev1.EnvVar{
 			Name:  "PREVIEW_VERSION",
