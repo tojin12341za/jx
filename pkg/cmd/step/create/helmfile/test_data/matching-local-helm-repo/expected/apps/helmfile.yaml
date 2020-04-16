@@ -1,0 +1,19 @@
+bases:
+- ../environments.yaml
+helmDefaults:
+  atomic: true
+  devel: false
+  force: false
+  recreatePods: false
+  tillerless: false
+  timeout: 520
+  tls: false
+  verify: false
+  wait: true
+releases:
+- chart: cheese/foo
+  name: empty
+  namespace: jx
+repositories:
+- name: cheese
+  url: gs://bar/charts

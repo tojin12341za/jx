@@ -1,0 +1,4 @@
+defaultNamespace: jx
+apps:
+- name: foo
+  repository: gs://bar/charts

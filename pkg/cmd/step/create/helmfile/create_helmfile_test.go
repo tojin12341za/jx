@@ -89,6 +89,48 @@ func TestExtraAppValues(t *testing.T) {
 	assert.Equal(t, "velero/values.yaml", h.Releases[0].Values[2])
 }
 
+func TestNoLocalHelmRepoMatch(t *testing.T) {
+	tempDir, err := ioutil.TempDir("", "test-applications-config")
+	assert.NoError(t, err, "should create a temporary config Dir")
+
+	o := &CreateHelmfileOptions{
+		outputDir:     tempDir,
+		Dir:           path.Join("test_data", "no-local-helm-repo"),
+		CreateOptions: *getCreateOptions(),
+	}
+	o.SetEnvironmentContext(createTestEnvironmentContext(t))
+	err = o.Run()
+	assert.NoError(t, err)
+
+	h, _, err := loadHelmfile(path.Join(tempDir, "apps"))
+	assert.NoError(t, err)
+
+	chartName := strings.Split(h.Releases[0].Chart, "/")
+	assert.Equal(t, 2, len(chartName))
+	assert.Equal(t, chartName[0], h.Repositories[0].Name)
+}
+
+func TestLocalHelmRepoMatch(t *testing.T) {
+	tempDir, err := ioutil.TempDir("", "test-applications-config")
+	assert.NoError(t, err, "should create a temporary config Dir")
+
+	o := &CreateHelmfileOptions{
+		outputDir:     tempDir,
+		Dir:           path.Join("test_data", "matching-local-helm-repo"),
+		CreateOptions: *getCreateOptionsWithLocalHelmRepo(),
+	}
+	o.SetEnvironmentContext(createTestEnvironmentContext(t))
+	err = o.Run()
+	assert.NoError(t, err)
+
+	h, _, err := loadHelmfile(path.Join(tempDir, "apps"))
+	assert.NoError(t, err)
+
+	chartName := strings.Split(h.Releases[0].Chart, "/")
+	assert.Equal(t, 2, len(chartName))
+	assert.Equal(t, "cheese", chartName[0])
+}
+
 func TestCreateNamespaceChart(t *testing.T) {
 	tempDir, err := ioutil.TempDir("", "test-applications-config")
 	assert.NoError(t, err, "should create a temporary config Dir")
@@ -175,6 +217,38 @@ func getCreateOptions() *options.CreateOptions {
 	commonOpts := opts.NewCommonOptionsWithFactory(factory)
 
 	helmer := helm_test.NewMockHelmer()
+	kuber := kube_test.NewMockKuber()
+
+	commonOpts.SetHelm(helmer)
+	commonOpts.SetKube(kuber)
+
+	return &options.CreateOptions{
+		CommonOptions: &commonOpts,
+	}
+}
+
+func getCreateOptionsWithLocalHelmRepo() *options.CreateOptions {
+	// default jx namespace
+	ns := &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "jx",
+		},
+	}
+	// mock factory
+	factory := mocks.NewMockFactory()
+	// mock Kubernetes interface
+	kubeInterface := fake.NewSimpleClientset(ns)
+
+	// Override CreateKubeClient to return mock Kubernetes interface
+	When(factory.CreateKubeClient()).ThenReturn(kubeInterface, "jx", nil)
+	commonOpts := opts.NewCommonOptionsWithFactory(factory)
+
+	helmer := helm_test.NewMockHelmer()
+	repos := make(map[string]string)
+	repos["cheese"] = "gs://bar/charts"
+
+	When(helmer.ListRepos()).ThenReturn(repos, nil)
+
 	kuber := kube_test.NewMockKuber()
 
 	commonOpts.SetHelm(helmer)
